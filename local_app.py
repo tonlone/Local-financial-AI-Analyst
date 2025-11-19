@@ -16,7 +16,7 @@ if 'language' not in st.session_state:
 def toggle_language():
     st.session_state.language = 'CN' if st.session_state.language == 'EN' else 'EN'
 
-# --- TRANSLATION DICTIONARY (TRADITIONAL CHINESE STRICT) ---
+# --- TRANSLATION DICTIONARY ---
 T = {
     "EN": {
         "app_title": "Local Value Investor",
@@ -31,7 +31,7 @@ T = {
         "qual_score": "Qualitative Score (0-20)",
         "qual_detail": "(5 topics x 4 pts)",
         "val_mult": "Valuation Multiplier (1-5)",
-        "val_detail": "(Based on PE Ratio)",
+        "val_detail": "(Based on Hist. PE Range)",
         "final_score": "= Final Score (0-100)",
         "tab_value": "💎 Value Analysis",
         "tab_tech": "📈 Technical Analysis",
@@ -46,21 +46,34 @@ T = {
         "val_analysis_header": "1. Qualitative Analysis",
         "quant_val_header": "2. Quantitative Valuation",
         "price": "Price",
-        "pe_ratio": "PE Ratio",
+        "pe_ratio": "Current PE",
         "multiplier_label": "Valuation Multiplier",
-        "verdict_buy": "BUY",
-        "verdict_sell": "SELL",
-        "verdict_hold": "HOLD",
-        "tech_verdict": "Technical Verdict",
-        "reason": "Reason",
-        "support": "Support",
-        "resistance": "Resistance",
-        "trend": "Trend",
-        "squeeze": "Squeeze",
+        
+        # Score Calculation Labels
+        "calc_qual": "Qualitative Score",
+        "calc_mult": "Multiplier",
+        "calc_result": "Final Score",
+        "score_calc_title": "VALUE SCORE CALCULATION",
+
+        # Valuation Specifics
+        "hist_low_pe": "Hist. Low PE (1Y)",
+        "hist_high_pe": "Hist. High PE (1Y)",
+        "pe_pos": "PE Position (1Y)",
+        "pe_pos_low": "Low (Cheap)",
+        "pe_pos_high": "High (Expensive)",
+        "grade_strong_buy": "Very Excellent / Strong Buy",
+        "grade_buy": "Excellent / Buy",
+        "grade_hold": "Good / Hold",
+        "grade_sell": "Average / Sell",
+        "grade_avoid": "Poor / Avoid",
+        "grading_scale": "Grading Scale:",
+        
+        "verdict_buy": "BUY", "verdict_sell": "SELL", "verdict_hold": "HOLD",
+        "tech_verdict": "Technical Verdict", "reason": "Reason",
+        "support": "Support", "resistance": "Resistance", "trend": "Trend", "squeeze": "Squeeze",
         "recent_div": "💰 Recent Dividend History (Last 10)",
         "no_div": "No recent dividend history available.",
         "fiscal_year": "Fiscal Year End",
-        # Financial Table Labels
         "fin_mkt_cap": "Market Cap", "fin_ent_val": "Enterprise Val",
         "fin_trail_pe": "Trailing P/E", "fin_fwd_pe": "Forward P/E",
         "fin_peg": "PEG Ratio", "fin_ps": "Price/Sales",
@@ -69,33 +82,16 @@ T = {
         "fin_roa": "ROA", "fin_roe": "ROE",
         "fin_eps": "EPS (ttm)", "fin_rev": "Revenue (ttm)",
         "fin_div_yield": "Dividend Yield", "fin_target": "Target Price",
-        # PE Text
         "pe_neg": "❌ Negative / No Earnings",
-        "pe_under": "✅ Undervalued (PE < 20)",
-        "pe_over": "⚠️ Overvalued (PE > 75)",
-        "pe_fair": "✅ Fairly Valued",
-        "pe_ok": "⚖️ Fair Value",
-        "pe_exp": "⚠️ Expensive",
-        # Technical Logic Text
-        "uptrend": "Uptrend", "downtrend": "Downtrend",
-        "weak_uptrend": "Weak Uptrend", "neutral": "Neutral",
-        "act_buy_sup": "BUY (Support Bounce) 🟢",
-        "act_buy_break": "STRONG BUY (Breakout) 🚀",
-        "act_prep": "PREPARE TO BUY (VCP) 🔵",
-        "act_profit": "HOLD / TAKE PROFIT 🟠",
-        "act_buy_hold": "BUY / HOLD 🟢",
-        "act_sell_sup": "SELL / AVOID 🔴",
-        "act_watch_oversold": "WATCH (Oversold) 🟡",
-        "act_avoid": "AVOID / SELL 🔴",
-        # Reasons
-        "reas_sup": "Uptrend + Near Support.",
-        "reas_vol": "Uptrend + High Volume.",
-        "reas_vcp": "Volatility Squeeze detected.",
-        "reas_over": "Uptrend but Overbought.",
-        "reas_health": "Healthy Uptrend.",
-        "reas_break_sup": "Breaking below Support.",
-        "reas_oversold": "Potential oversold bounce.",
-        "reas_down": "Stock is in a Downtrend."
+        "uptrend": "Uptrend", "downtrend": "Downtrend", "weak_uptrend": "Weak Uptrend", "neutral": "Neutral",
+        "act_buy_sup": "BUY (Support Bounce) 🟢", "act_buy_break": "STRONG BUY (Breakout) 🚀",
+        "act_prep": "PREPARE TO BUY (VCP) 🔵", "act_profit": "HOLD / TAKE PROFIT 🟠",
+        "act_buy_hold": "BUY / HOLD 🟢", "act_sell_sup": "SELL / AVOID 🔴",
+        "act_watch_oversold": "WATCH (Oversold) 🟡", "act_avoid": "AVOID / SELL 🔴",
+        "reas_sup": "Uptrend + Near Support.", "reas_vol": "Uptrend + High Volume.",
+        "reas_vcp": "Volatility Squeeze detected.", "reas_over": "Uptrend but Overbought.",
+        "reas_health": "Healthy Uptrend.", "reas_break_sup": "Breaking below Support.",
+        "reas_oversold": "Potential oversold bounce.", "reas_down": "Stock is in a Downtrend."
     },
     "CN": {
         "app_title": "本地價值投資助手",
@@ -110,36 +106,47 @@ T = {
         "qual_score": "定性評分 (0-20)",
         "qual_detail": "(5個主題 x 4分)",
         "val_mult": "估值倍數 (1-5)",
-        "val_detail": "(基於市盈率 PE)",
+        "val_detail": "(基於歷史 PE 區間)",
         "final_score": "= 最終評分 (0-100)",
         "tab_value": "💎 價值分析",
         "tab_tech": "📈 技術分析",
         "tab_fin": "📊 財務數據",
-        "topics": [
-            "獨特產品/護城河", "營收增長潛力", "競爭優勢", "獲利穩定性", "管理層質素"
-        ],
+        "topics": ["獨特產品/護城河", "營收增長潛力", "競爭優勢", "獲利穩定性", "管理層質素"],
         "loading_data": "正在獲取數據：",
         "loading_ai": "AI 正在分析：",
         "currency": "貨幣",
         "industry": "行業",
         "val_analysis_header": "1. 定性分析 (AI)",
         "quant_val_header": "2. 量化估值",
-        "price": "股價",
-        "pe_ratio": "市盈率 (PE)",
-        "multiplier_label": "估值倍數",
-        "verdict_buy": "買入",
-        "verdict_sell": "賣出",
-        "verdict_hold": "持有",
-        "tech_verdict": "技術面結論",
-        "reason": "理由",
-        "support": "支持位",
-        "resistance": "阻力位",
-        "trend": "趨勢",
-        "squeeze": "擠壓 (VCP)",
+        "price": "當前股價",
+        "pe_ratio": "當前 PE",
+        "multiplier_label": "本益比乘數 (Multiplier)",
+        
+        # Score Calculation Labels
+        "calc_qual": "投資評估分數",
+        "calc_mult": "本益比乘數",
+        "calc_result": "最終評分",
+        "score_calc_title": "價值評分計算",
+
+        # Valuation Specifics
+        "hist_low_pe": "歷史最低 PE (1年)",
+        "hist_high_pe": "歷史最高 PE (1年)",
+        "pe_pos": "目前 PE 位置區間",
+        "pe_pos_low": "低位 (便宜)",
+        "pe_pos_high": "高位 (昂貴)",
+        "grade_strong_buy": "非常優秀 (Strong Buy)",
+        "grade_buy": "優秀 (Buy)",
+        "grade_hold": "良好 (Hold)",
+        "grade_sell": "普通 (Sell)",
+        "grade_avoid": "差 (Avoid)",
+        "grading_scale": "評級標準:",
+        
+        "verdict_buy": "買入", "verdict_sell": "賣出", "verdict_hold": "持有",
+        "tech_verdict": "技術面結論", "reason": "理由",
+        "support": "支持位", "resistance": "阻力位", "trend": "趨勢", "squeeze": "擠壓 (VCP)",
         "recent_div": "💰 近期派息記錄 (最近10次)",
         "no_div": "沒有近期派息記錄。",
         "fiscal_year": "財政年度結算日",
-        # Financial Table Labels
         "fin_mkt_cap": "市值", "fin_ent_val": "企業價值",
         "fin_trail_pe": "歷史市盈率", "fin_fwd_pe": "預測市盈率",
         "fin_peg": "PEG 比率", "fin_ps": "市銷率 (P/S)",
@@ -148,37 +155,19 @@ T = {
         "fin_roa": "資產回報率 (ROA)", "fin_roe": "股本回報率 (ROE)",
         "fin_eps": "每股盈利 (EPS)", "fin_rev": "總營收",
         "fin_div_yield": "股息率", "fin_target": "目標價",
-        # PE Text
         "pe_neg": "❌ 負收益 / 無盈利",
-        "pe_under": "✅ 被低估 (PE < 20)",
-        "pe_over": "⚠️ 被高估 (PE > 75)",
-        "pe_fair": "✅ 估值合理",
-        "pe_ok": "⚖️ 估值適中",
-        "pe_exp": "⚠️ 估值偏高",
-        # Technical Logic Text
-        "uptrend": "上升趨勢", "downtrend": "下降趨勢",
-        "weak_uptrend": "弱勢上升", "neutral": "中性",
-        "act_buy_sup": "買入 (支持位反彈) 🟢",
-        "act_buy_break": "強力買入 (突破) 🚀",
-        "act_prep": "準備買入 (VCP擠壓) 🔵",
-        "act_profit": "持有 / 獲利止盈 🟠",
-        "act_buy_hold": "買入 / 持有 🟢",
-        "act_sell_sup": "賣出 / 觀望 🔴",
-        "act_watch_oversold": "關注 (超賣反彈) 🟡",
-        "act_avoid": "觀望 / 賣出 🔴",
-        # Reasons
-        "reas_sup": "上升趨勢 + 接近支持位。",
-        "reas_vol": "上升趨勢 + 成交量激增。",
-        "reas_vcp": "檢測到波動率擠壓 (VCP)。",
-        "reas_over": "上升趨勢但超買。",
-        "reas_health": "健康的上升趨勢。",
-        "reas_break_sup": "跌破支持位。",
-        "reas_oversold": "下跌趨勢但可能超賣反彈。",
-        "reas_down": "股價處於下降趨勢。"
+        "uptrend": "上升趨勢", "downtrend": "下降趨勢", "weak_uptrend": "弱勢上升", "neutral": "中性",
+        "act_buy_sup": "買入 (支持位反彈) 🟢", "act_buy_break": "強力買入 (突破) 🚀",
+        "act_prep": "準備買入 (VCP擠壓) 🔵", "act_profit": "持有 / 獲利止盈 🟠",
+        "act_buy_hold": "買入 / 持有 🟢", "act_sell_sup": "賣出 / 觀望 🔴",
+        "act_watch_oversold": "關注 (超賣反彈) 🟡", "act_avoid": "觀望 / 賣出 🔴",
+        "reas_sup": "上升趨勢 + 接近支持位。", "reas_vol": "上升趨勢 + 成交量激增。",
+        "reas_vcp": "檢測到波動率擠壓 (VCP)。", "reas_over": "上升趨勢但超買。",
+        "reas_health": "健康的上升趨勢。", "reas_break_sup": "跌破支持位。",
+        "reas_oversold": "下跌趨勢但可能超賣反彈。", "reas_down": "股價處於下降趨勢。"
     }
 }
 
-# Helper to get text based on current language
 def txt(key):
     return T[st.session_state.language][key]
 
@@ -198,6 +187,24 @@ st.markdown("""
         text-align: center; padding: 20px; border-radius: 15px; 
         background-color: #ffffff; margin-top: 20px; border: 4px solid #ccc;
     }
+    /* Grade Table */
+    .grade-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+        margin-top: 10px;
+    }
+    .grade-table td {
+        padding: 5px;
+        border: 1px solid #eee;
+        text-align: center;
+    }
+    .grade-green { background-color: #e6ffe6; color: #006600; font-weight: bold; }
+    .grade-lightgreen { background-color: #f0fff0; color: #009900; }
+    .grade-yellow { background-color: #fffff0; color: #b3b300; }
+    .grade-orange { background-color: #fff5e6; color: #cc6600; }
+    .grade-red { background-color: #ffe6e6; color: #cc0000; }
+    
     div[data-testid="stMetricValue"] { font-size: 18px !important; }
     div[data-testid="stMetricLabel"] { font-size: 12px !important; color: #888; }
     div[data-testid="stForm"] button[kind="primary"] {
@@ -207,7 +214,6 @@ st.markdown("""
     div[data-testid="stForm"] button[kind="primary"]:hover {
         background-color: #FF0000; border-color: #FF0000;
     }
-    /* Language Button Style */
     .lang-btn { margin-top: 0px; }
 </style>
 """, unsafe_allow_html=True)
@@ -235,12 +241,9 @@ def fmt_dividend(val):
     return f"{val:.2f}%"
 
 def fmt_date(ts):
-    """Converts Unix timestamp to YYYY-MM-DD"""
     if ts is None: return "-"
-    try:
-        return datetime.fromtimestamp(ts).strftime('%Y-%m-%d')
-    except:
-        return str(ts)
+    try: return datetime.fromtimestamp(ts).strftime('%Y-%m-%d')
+    except: return str(ts)
 
 def get_stock_data(ticker):
     try:
@@ -251,15 +254,26 @@ def get_stock_data(ticker):
         hist = stock.history(period="1y")
         if price == 0 and not hist.empty: price = hist['Close'].iloc[-1]
         
+        eps = info.get('trailingEps')
+        if eps is None: eps = info.get('forwardEps')
+
         pe = info.get('trailingPE')
-        if pe is None or pe == 'N/A':
-            eps = info.get('forwardEps', info.get('trailingEps', 0))
-            pe = price / eps if eps and eps > 0 else 0
+        if pe is None:
+            pe = price / eps if (eps and eps > 0) else 0
+
+        min_pe = 0
+        max_pe = 0
+        
+        if eps and eps > 0 and not hist.empty:
+            pe_series = hist['Close'] / eps
+            min_pe = pe_series.min()
+            max_pe = pe_series.max()
         
         divs = stock.dividends
 
         return {
             "price": price, "currency": info.get('currency', 'USD'), "pe": pe,
+            "eps": eps, "min_pe": min_pe, "max_pe": max_pe,
             "name": info.get('longName', ticker), "industry": info.get('industry', 'Unknown'),
             "summary": info.get('longBusinessSummary', 'No summary available.'), 
             "history": hist, "dividends": divs, "raw_info": info 
@@ -301,7 +315,6 @@ def calculate_technicals(df):
     }
 
 def analyze_qualitative(ticker, summary, topic):
-    # --- STRONGER PROMPT FOR CHINESE ---
     if st.session_state.language == 'CN':
         system_role = "You are a strict financial analyst. You MUST output in Traditional Chinese (繁體中文)."
         lang_instruction = (
@@ -449,36 +462,118 @@ if run_analysis:
                     else: s, r = 0.0, res 
                     total_qual += s
                     qual_results.append((t_display, s, r))
-                    with st.expander(f"{t_display}", expanded=True): st.markdown(f"**{s}/4** — {r}")
+                    
+                    # --- VISUAL PROGRESS BARS FOR QUALITATIVE ---
+                    with st.container(border=True):
+                        c1, c2 = st.columns([4, 1])
+                        with c1: st.markdown(f"**{t_display}**")
+                        with c2: st.markdown(f"<h4 style='margin:0; text-align:right; color:#4da6ff;'>{s} <span style='font-size:14px; color:#888;'>/ 4</span></h4>", unsafe_allow_html=True)
+                        st.progress(min(s/4.0, 1.0))
+                        st.markdown(f"<div style='color:#666; font-size:14px; margin-top:5px;'>{r}</div>", unsafe_allow_html=True)
 
                 prog_bar.empty(); status_text.empty()
 
+            # --- VALUATION LOGIC ---
             pe = data['pe']
-            if pe is None or pe <= 0: mult, color_code, pe_text = 1.0, "#FF4500", txt('pe_neg')
-            elif pe <= 20: mult, color_code, pe_text = 5.0, "#00C805", txt('pe_under')
-            elif pe >= 75: mult, color_code, pe_text = 1.0, "#FF4500", txt('pe_over')
+            min_pe = data['min_pe']
+            max_pe = data['max_pe']
+            position_pct = 0.0
+            mult = 1.0
+            color_code = "#FF4500"
+            
+            if pe and pe > 0 and max_pe > min_pe:
+                position_pct = (pe - min_pe) / (max_pe - min_pe)
+                if position_pct < 0.25: mult = 5.0
+                elif position_pct < 0.50: mult = 4.0
+                elif position_pct < 0.75: mult = 3.0
+                elif position_pct < 1.00: mult = 2.0
+                else: mult = 1.0
+                mult = float(mult)
+                if mult >= 4: color_code = "#00C805"
+                elif mult >= 3: color_code = "#90EE90"
+                elif mult >= 2: color_code = "#FFA500"
+                else: color_code = "#FF4500"
             else:
-                pct = (pe - 20) / 55; mult = 5.0 - (pct * 4.0)
-                if mult >= 4.0: color_code, pe_text = "#00C805", txt('pe_fair')
-                elif mult >= 3.0: color_code, pe_text = "#90EE90", txt('pe_ok')
-                elif mult >= 2.0: color_code, pe_text = "#FFA500", txt('pe_exp')
-                else: color_code, pe_text = "#FF4500", txt('pe_exp')
+                mult = 1.0
+                position_pct = 1.0
+                color_code = "#FF4500"
 
-            mult = round(mult, 2) 
             final_score = round(total_qual * mult, 1) 
+            
+            verdict_text = txt('grade_avoid')
+            verdict_color = "#ffcccc"
+            if final_score >= 75: verdict_text, verdict_color = txt('grade_strong_buy'), "#e6ffe6"
+            elif final_score >= 60: verdict_text, verdict_color = txt('grade_buy'), "#f0fff0"
+            elif final_score >= 45: verdict_text, verdict_color = txt('grade_hold'), "#fffff0"
+            elif final_score >= 30: verdict_text, verdict_color = txt('grade_sell'), "#fff5e6"
+            
+            verdict_border_color = "#006600" if final_score >= 75 else "#b3b300" if final_score >= 45 else "#cc0000"
 
             with col_v:
                 st.subheader(txt('quant_val_header'))
                 with st.container(border=True):
-                    st.caption(f"{txt('price')} ({data['currency']})"); st.metric("Price", f"{data['price']:.2f}", label_visibility="collapsed")
-                    st.caption(txt('pe_ratio')); st.metric("PE Ratio", f"{pe:.2f}" if pe else "N/A", label_visibility="collapsed")
-                    st.divider(); st.subheader(txt('multiplier_label'))
-                    st.markdown(f"""<div class="multiplier-box" style="border: 2px solid {color_code}; color: {color_code};">x{mult}</div>""", unsafe_allow_html=True)
-                    if color_code in ["#00C805", "#90EE90"]: st.success(pe_text)
-                    else: st.warning(pe_text)
+                    st.caption(f"{txt('price')} ({data['currency']})")
+                    st.metric("Price", f"{data['price']:.2f}", label_visibility="collapsed")
+                    st.caption(txt('pe_ratio'))
+                    st.metric("PE", f"{pe:.2f}" if pe and pe > 0 else "N/A", label_visibility="collapsed")
+                    st.divider()
+                    
+                    c1, c2 = st.columns(2)
+                    c1.caption(txt('hist_low_pe'))
+                    c1.text_input("Low", value=f"{min_pe:.1f}", disabled=True, label_visibility="collapsed")
+                    c2.caption(txt('hist_high_pe'))
+                    c2.text_input("High", value=f"{max_pe:.1f}", disabled=True, label_visibility="collapsed")
+                    
+                    st.caption(txt('pe_pos'))
+                    safe_pct = max(0.0, min(1.0, position_pct))
+                    st.progress(safe_pct)
+                    cc1, cc2 = st.columns([1,1])
+                    cc1.markdown(f"<small>{txt('pe_pos_low')}</small>", unsafe_allow_html=True)
+                    cc2.markdown(f"<div style='text-align:right'><small>{txt('pe_pos_high')}</small></div>", unsafe_allow_html=True)
 
-            verdict_color = "#00C805" if final_score >= 75 else "#FFA500" if final_score >= 45 else "#FF0000"
-            st.markdown(f"""<div class="final-score-box" style="border-color: {verdict_color};"><h2 style="color:#333;margin:0;">VALUE SCORE</h2><h1 style="color:{verdict_color};font-size:80px;margin:0;">{final_score}</h1></div>""", unsafe_allow_html=True)
+                    st.divider()
+                    st.subheader(txt('multiplier_label'))
+                    st.markdown(f"""<div class="multiplier-box" style="border: 2px solid {color_code}; color: {color_code};">x{mult:.0f}</div>""", unsafe_allow_html=True)
+
+            st.markdown(f"""
+<div class="final-score-box" style="border-color: {verdict_border_color}; padding: 25px;">
+<h3 style="color:#555; margin:0 0 20px 0; font-size: 22px;">{txt('score_calc_title')}</h3>
+<div style="display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 15px;">
+<div style="background: #f8f9fa; border-radius: 12px; padding: 15px; text-align: center; min-width: 120px; border: 1px solid #e0e0e0;">
+<div style="font-size: 13px; color: #666; margin-bottom: 5px;">{txt('calc_qual')}</div>
+<div style="font-size: 32px; font-weight: 800; color: #333;">{total_qual:g}</div>
+<div style="font-size: 12px; color: #999;">/ 20</div>
+</div>
+<div style="font-size: 24px; color: #bbb; font-weight: bold;">✖</div>
+<div style="background: #f8f9fa; border-radius: 12px; padding: 15px; text-align: center; min-width: 120px; border: 1px solid #e0e0e0;">
+<div style="font-size: 13px; color: #666; margin-bottom: 5px;">{txt('calc_mult')}</div>
+<div style="font-size: 32px; font-weight: 800; color: #333;">{mult:g}</div>
+<div style="font-size: 12px; color: #999;">x1 - x5</div>
+</div>
+<div style="font-size: 24px; color: #bbb; font-weight: bold;">=</div>
+<div style="background: #ffffff; border-radius: 12px; padding: 20px; text-align: center; min-width: 140px; border: 3px solid {verdict_border_color}; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+<div style="font-size: 14px; color: #666; margin-bottom: 5px; font-weight: bold;">{txt('calc_result')}</div>
+<div style="font-size: 48px; font-weight: 900; color: {verdict_border_color}; line-height: 1;">{final_score}</div>
+</div>
+</div>
+<div style="margin-top: 25px;">
+<span style="background-color:{verdict_color}; padding: 8px 20px; border-radius: 20px; font-size: 16px; font-weight:bold; color:#333; border: 1px solid rgba(0,0,0,0.1);">
+{verdict_text}
+</span>
+</div>
+</div>
+""", unsafe_allow_html=True)
+
+            with st.expander(txt('grading_scale'), expanded=False):
+                st.markdown(f"""
+<table class="grade-table">
+<tr class="grade-green"><td>75 - 100</td><td>{txt('grade_strong_buy')}</td></tr>
+<tr class="grade-lightgreen"><td>60 - 74.9</td><td>{txt('grade_buy')}</td></tr>
+<tr class="grade-yellow"><td>45 - 59.9</td><td>{txt('grade_hold')}</td></tr>
+<tr class="grade-orange"><td>30 - 44.9</td><td>{txt('grade_sell')}</td></tr>
+<tr class="grade-red"><td>< 30</td><td>{txt('grade_avoid')}</td></tr>
+</table>
+""", unsafe_allow_html=True)
 
         # ==========================================
         # TAB 2: TECHNICAL ANALYSIS
