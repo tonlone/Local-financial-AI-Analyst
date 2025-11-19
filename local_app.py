@@ -52,18 +52,6 @@ T = {
         "pe_ratio": "Forward PE (Used for Calc)",
         "multiplier_label": "Valuation Multiplier",
         
-        # Multiplier Explanation (NEW)
-        "mult_how": "❓ How is this calculated?",
-        "mult_exp_title": "Logic: Buy Low, Sell High",
-        "mult_exp_desc": "We compare the current PE to its 5-year range. Lower PE (Cheap) gets a higher multiplier to boost the score.",
-        "mult_formula": "Position Formula:",
-        "mult_table_pos": "PE Position",
-        "mult_table_mult": "Multiplier",
-        "mult_table_mean": "Meaning",
-        "status_under": "Undervalued",
-        "status_fair": "Fair Value",
-        "status_over": "Overvalued",
-        
         # Score Calculation
         "calc_qual": "Qualitative Score",
         "calc_mult": "Multiplier",
@@ -116,9 +104,6 @@ T = {
         "earn_est_eps": "Est. EPS",
         "earn_act_eps": "Actual EPS",
         "earn_surprise": "Surprise",
-        "earn_rev": "Revenue",
-        "earn_net_income": "Net Income",
-        "earn_margin": "Profit Margin",
         "ai_summary_title": "AI Earnings & News Summary",
         "source_link": "Search Official Earnings Report",
         
@@ -162,18 +147,6 @@ T = {
         "pe_ratio": "預測市盈率 (Forward PE)",
         "multiplier_label": "本益比乘數 (Multiplier)",
         
-        # Multiplier Explanation
-        "mult_how": "❓ 如何計算此倍數？",
-        "mult_exp_title": "邏輯：低買高賣",
-        "mult_exp_desc": "我們將當前 PE 與過去 5 年的歷史區間進行比較。PE 越低（便宜）則倍數越高，從而提升評分。",
-        "mult_formula": "位置計算公式：",
-        "mult_table_pos": "PE 區間位置",
-        "mult_table_mult": "倍數 (Multiplier)",
-        "mult_table_mean": "含義",
-        "status_under": "被低估 (便宜)",
-        "status_fair": "合理估值",
-        "status_over": "被高估 (昂貴)",
-
         # Score Calculation
         "calc_qual": "投資評估分數",
         "calc_mult": "本益比乘數",
@@ -226,9 +199,6 @@ T = {
         "earn_est_eps": "預估 EPS",
         "earn_act_eps": "實際 EPS",
         "earn_surprise": "驚喜幅度 (Surprise)",
-        "earn_rev": "季度營收",
-        "earn_net_income": "淨利潤",
-        "earn_margin": "淨利率",
         "ai_summary_title": "AI 財報與新聞摘要",
         "source_link": "搜尋官方財報",
         
@@ -534,24 +504,6 @@ if run_analysis:
                     st.caption(txt('pe_pos')); safe_pct = max(0.0, min(1.0, position_pct)); st.progress(safe_pct)
                     cc1, cc2 = st.columns([1,1]); cc1.markdown(f"<small>{txt('pe_pos_low')}</small>", unsafe_allow_html=True); cc2.markdown(f"<div style='text-align:right'><small>{txt('pe_pos_high')}</small></div>", unsafe_allow_html=True)
                     st.divider(); st.subheader(txt('multiplier_label')); st.markdown(f"""<div class="multiplier-box" style="border: 2px solid {color_code}; color: {color_code};">x{mult:.0f}</div>""", unsafe_allow_html=True)
-                    
-                    # --- NEW: MULTIPLIER EXPLANATION DROPDOWN ---
-                    with st.expander(txt('mult_how')):
-                        st.markdown(f"""
-                        **{txt('mult_exp_title')}**  
-                        {txt('mult_exp_desc')}
-                        
-                        **{txt('mult_formula')}**  
-                        `({pe:.2f} - {min_pe:.2f}) / ({max_pe:.2f} - {min_pe:.2f}) = {position_pct*100:.1f}%`
-                        
-                        | {txt('mult_table_pos')} | {txt('mult_table_mult')} | {txt('mult_table_mean')} |
-                        | :--- | :---: | :--- |
-                        | 0% - 25% | **x5** | {txt('status_under')} |
-                        | 25% - 50% | **x4** | {txt('status_fair')} |
-                        | 50% - 75% | **x3** | {txt('status_fair')} |
-                        | 75% - 100% | **x2** | {txt('status_over')} |
-                        | > 100% | **x1** | {txt('status_over')} |
-                        """)
 
             st.markdown(f"""<div class="final-score-box" style="border-color: {verdict_border_color}; padding: 25px;"><h3 style="color:#555; margin:0 0 20px 0; font-size: 22px;">{txt('score_calc_title')}</h3><div style="display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 15px;"><div style="background: #f8f9fa; border-radius: 12px; padding: 15px; text-align: center; min-width: 120px; border: 1px solid #e0e0e0;"><div style="font-size: 13px; color: #666; margin-bottom: 5px;">{txt('calc_qual')}</div><div style="font-size: 32px; font-weight: 800; color: #333;">{total_qual:g}</div><div style="font-size: 12px; color: #999;">/ 20</div></div><div style="font-size: 24px; color: #bbb; font-weight: bold;">✖</div><div style="background: #f8f9fa; border-radius: 12px; padding: 15px; text-align: center; min-width: 120px; border: 1px solid #e0e0e0;"><div style="font-size: 13px; color: #666; margin-bottom: 5px;">{txt('calc_mult')}</div><div style="font-size: 32px; font-weight: 800; color: #333;">{mult:g}</div><div style="font-size: 12px; color: #999;">x1 - x5</div></div><div style="font-size: 24px; color: #bbb; font-weight: bold;">=</div><div style="background: #ffffff; border-radius: 12px; padding: 20px; text-align: center; min-width: 140px; border: 3px solid {verdict_border_color}; box-shadow: 0 4px 15px rgba(0,0,0,0.05);"><div style="font-size: 14px; color: #666; margin-bottom: 5px; font-weight: bold;">{txt('calc_result')}</div><div style="font-size: 48px; font-weight: 900; color: {verdict_border_color}; line-height: 1;">{final_score}</div></div></div><div style="margin-top: 25px;"><span style="background-color:{verdict_color}; padding: 8px 20px; border-radius: 20px; font-size: 16px; font-weight:bold; color:#333; border: 1px solid rgba(0,0,0,0.1);">{verdict_text}</span></div></div>""", unsafe_allow_html=True)
             with st.expander(txt('grading_scale'), expanded=False):
@@ -636,9 +588,8 @@ if run_analysis:
             # --- Q/Q Financial Trends Section ---
             st.subheader(txt('qq_title'))
             
-            # Data Prep for Q/Q
             q_stmt = data['quarterly_financials']
-            if q_stmt is not None and q_stmt.shape[1] >= 2:
+            if q_stmt is not None and not q_stmt.empty and q_stmt.shape[1] >= 2:
                 curr = q_stmt.iloc[:, 0] # Latest Quarter
                 prev = q_stmt.iloc[:, 1] # Previous Quarter
                 
@@ -646,60 +597,41 @@ if run_analysis:
                     try: return ((cur - pre) / abs(pre)) * 100 if pre != 0 else None
                     except: return None
                 
-                # Metric Helper
                 def show_qq(label, cur_val, prev_val, is_curr=True, is_pct=False):
                     pct = calc_pct(cur_val, prev_val)
                     display_val = fmt_num(cur_val, is_currency=is_curr, is_pct=is_pct)
-                    # For margin, we usually just show the % value itself
                     if is_pct: display_val = f"{cur_val*100:.2f}%" if pd.notna(cur_val) else "-"
-                    
-                    st.metric(
-                        label, 
-                        display_val, 
-                        f"{pct:.2f}%" if pct is not None else "-",
-                        delta_color="normal" 
-                    )
+                    st.metric(label, display_val, f"{pct:.2f}%" if pct is not None else "-", delta_color="normal")
 
                 c_q1, c_q2, c_q3 = st.columns(3)
-                
                 with c_q1:
-                    # Revenue
                     show_qq(txt('qq_rev'), curr.get('Total Revenue'), prev.get('Total Revenue'))
-                    # Operating Income
                     show_qq(txt('qq_op_inc'), curr.get('Operating Income'), prev.get('Operating Income'))
-                
                 with c_q2:
-                    # Net Income
                     show_qq(txt('qq_net_inc'), curr.get('Net Income'), prev.get('Net Income'))
-                    # Operating Expenses
-                    op_exp_c = curr.get('Operating Expense'); op_exp_p = prev.get('Operating Expense')
-                    show_qq(txt('qq_op_exp'), op_exp_c, op_exp_p)
-
+                    show_qq(txt('qq_op_exp'), curr.get('Operating Expense'), prev.get('Operating Expense'))
                 with c_q3:
-                    # Net Income Per Share (Basic EPS)
                     show_qq(txt('qq_eps'), curr.get('Basic EPS'), prev.get('Basic EPS'), is_curr=False)
-                    
-                    # Gross Margin (Calculated)
                     try:
                         gm_c = curr.get('Gross Profit') / curr.get('Total Revenue')
                         gm_p = prev.get('Gross Profit') / prev.get('Total Revenue')
                         diff_bps = (gm_c - gm_p) * 100
                         st.metric(txt('qq_gross_marg'), f"{gm_c*100:.2f}%", f"{diff_bps:.2f} bps")
-                    except:
-                        st.metric(txt('qq_gross_marg'), "-")
-
-            else:
-                st.info("Insufficient quarterly data for Q/Q comparison.")
+                    except: st.metric(txt('qq_gross_marg'), "-")
+            else: st.info("Insufficient quarterly data for Q/Q comparison.")
 
             st.markdown("---")
             st.subheader(txt('ai_summary_title'))
             
+            # Prepare context safely
+            q_rev_disp = "N/A"
+            if q_stmt is not None and not q_stmt.empty:
+                q_rev_disp = fmt_num(q_stmt.iloc[:, 0].get('Total Revenue'), is_currency=True)
+
             news_text = ""
             if data['news']:
                 for n in data['news'][:5]:
                     news_text += f"- {n.get('title', 'No Title')}\n"
-            
-            q_rev_disp = fmt_num(q_stmt.iloc[:, 0].get('Total Revenue'), is_currency=True) if q_stmt is not None else "N/A"
             
             earn_context = f"Last Earnings Date: {earn_date}. Reported EPS: {latest_earnings.get('Reported EPS') if latest_earnings is not None else 'N/A'}. Revenue: {q_rev_disp}."
             full_context = f"{earn_context}\nRecent Headlines:\n{news_text}"
