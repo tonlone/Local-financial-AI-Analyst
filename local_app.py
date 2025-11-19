@@ -48,8 +48,12 @@ except:
     connection_status = False
 
 # --- DATA FUNCTIONS ---
+
 def fmt_num(val, is_pct=False, is_currency=False):
-    """Helper to format numbers like Finviz (B, T, %)"""
+    """
+    General formatter for Margins, ratios, etc.
+    Note: Profit Margins usually come as decimals (0.15) so we *100.
+    """
     if val is None or val == "N/A": return "-"
     if is_pct: return f"{val * 100:.2f}%"
     if is_currency:
@@ -57,6 +61,15 @@ def fmt_num(val, is_pct=False, is_currency=False):
         if val > 1e9: return f"{val/1e9:.2f}B"
         if val > 1e6: return f"{val/1e6:.2f}M"
     return f"{val:.2f}"
+
+def fmt_dividend(val):
+    """
+    Specific formatter for Dividend Yield.
+    yfinance returns this as the actual percentage number (e.g., 4.94 or 0.02).
+    We do NOT multiply by 100.
+    """
+    if val is None: return "-"
+    return f"{val:.2f}%"
 
 def get_stock_data(ticker):
     try:
@@ -69,7 +82,6 @@ def get_stock_data(ticker):
         eps = info.get('forwardEps', info.get('trailingEps', 0))
         pe = price / eps if eps and eps > 0 else 0
         
-        # Return raw_info to access all Finviz fields
         return {
             "price": price, "currency": info.get('currency', 'USD'), "pe": pe,
             "name": info.get('longName', ticker), "industry": info.get('industry', 'Unknown'),
@@ -208,7 +220,6 @@ if run_analysis:
         st.header(f"{data['name']} ({final_t})")
         st.caption(f"Industry: {data['industry']} | Currency: {data['currency']}")
         
-        # --- TABS CONFIGURATION ---
         tab_fund, tab_tech, tab_fin = st.tabs(["💎 Value Analysis", "📈 Technical Analysis", "📊 Financials"])
 
         # ==========================================
@@ -297,12 +308,11 @@ if run_analysis:
             else: st.warning("Not enough historical data.")
 
         # ==========================================
-        # TAB 3: FINANCIALS (FINVIZ STYLE)
+        # TAB 3: FINANCIALS
         # ==========================================
         with tab_fin:
             i = data['raw_info']
             
-            # Helper to make rows
             def make_row(cols):
                 c = st.columns(len(cols))
                 for idx, (label, val) in enumerate(cols):
@@ -328,7 +338,7 @@ if run_analysis:
             ])
             st.divider()
             
-            # Row 3: Profitability
+            # Row 3: Profitability (Usually decimals, so we multiply by 100 in fmt_num)
             make_row([
                 ("Profit Margin", fmt_num(i.get('profitMargins'), is_pct=True)),
                 ("Gross Margin", fmt_num(i.get('grossMargins'), is_pct=True)),
@@ -337,11 +347,11 @@ if run_analysis:
             ])
             st.divider()
             
-            # Row 4: Income & Dividend
+            # Row 4: Income & Dividend (Using specific fmt_dividend)
             make_row([
                 ("EPS (ttm)", fmt_num(i.get('trailingEps'))),
                 ("Revenue (ttm)", fmt_num(i.get('totalRevenue'), is_currency=True)),
-                ("Dividend Yield", fmt_num(i.get('dividendYield'), is_pct=True)),
+                ("Dividend Yield", fmt_dividend(i.get('dividendYield'))),
                 ("Target Price", fmt_num(i.get('targetMeanPrice')))
             ])
             
