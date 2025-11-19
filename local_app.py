@@ -11,9 +11,26 @@ st.set_page_config(page_title="Local Value Investor", layout="wide", page_icon="
 # --- CSS STYLING ---
 st.markdown("""
 <style>
+    /* Multiplier Box (Green text, white bg, border) */
     .multiplier-box {
-        font-size: 30px; font-weight: bold; text-align: center; padding: 10px;
-        border-radius: 10px; background-color: #f9f9f9; margin-top: 10px;
+        font-size: 35px; 
+        font-weight: bold; 
+        text-align: center; 
+        padding: 15px; 
+        border-radius: 10px; 
+        background-color: #ffffff; 
+        margin-top: 10px;
+        margin-bottom: 10px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    /* Methodology Section in Sidebar */
+    .methodology-box {
+        background-color: #262730;
+        padding: 15px;
+        border-radius: 10px;
+        border: 1px solid #444;
+        font-size: 14px;
+        margin-top: 20px;
     }
     .final-score-box {
         text-align: center; padding: 20px; border-radius: 15px; 
@@ -32,9 +49,9 @@ st.markdown("""
 # --- LOCAL AI CLIENT SETUP ---
 try:
     client = OpenAI(base_url="http://localhost:1234/v1", api_key="lm-studio")
-except Exception as e:
-    st.error(f"Could not connect to LM Studio. Error: {e}")
-    st.stop()
+    connection_status = True
+except:
+    connection_status = False
 
 # --- DATA FUNCTIONS ---
 def get_stock_data(ticker):
@@ -117,19 +134,46 @@ if 'layout_mode' not in st.session_state: st.session_state.layout_mode = 'deskto
 if 'active_ticker' not in st.session_state: st.session_state.active_ticker = "NVDA"
 if 'active_market' not in st.session_state: st.session_state.active_market = "US"
 
+# --- SIDEBAR ---
 with st.sidebar:
-    st.header("Local AI Analyst")
+    st.header("Analysis Tool")
+    
+    # 1. Search Form
     with st.form(key='desktop_form'):
+        st.caption("Select Market")
         d_market = st.selectbox("Market", ["US", "Canada (TSX)", "HK (HKEX)"], label_visibility="collapsed")
+        st.caption("Enter Stock Ticker")
         d_ticker = st.text_input("Ticker", value="NVDA", label_visibility="collapsed").upper()
         d_submit = st.form_submit_button("Analyze Stock", type="primary") 
-    st.caption("Connects to LM Studio (Qwen, DeepSeek, Llama)")
-    try:
-        models = client.models.list()
-        st.success("🟢 LM Studio Connected")
-    except:
+    
+    st.markdown("---")
+    
+    # 2. Connection Status
+    if connection_status:
+        try:
+            # Simple check to see if server responds
+            client.models.list()
+            st.success("🟢 LM Studio Connected")
+        except:
+             st.error("🔴 LM Studio Disconnected")
+    else:
         st.error("🔴 LM Studio Disconnected")
 
+    # 3. Methodology Section (Fixed Indentation)
+    st.markdown("""
+<div class="methodology-box">
+<h4 style="margin-top:0; color: #4da6ff;">Methodology:</h4>
+<p style="margin-bottom: 5px;"><strong style="color: #4da6ff;">Qualitative Score (0-20)</strong><br>
+<span style="color: #aaa; font-size: 12px;">(5 topics x 4 pts)</span></p>
+<p style="text-align:center; margin: 5px 0;">✖</p>
+<p style="margin-bottom: 5px;"><strong style="color: #4da6ff;">Valuation Multiplier (1-5)</strong><br>
+<span style="color: #aaa; font-size: 12px;">(Based on PE Ratio)</span></p>
+<hr style="margin: 10px 0; border-color: #555;">
+<p style="margin-bottom: 0;"><strong style="color: #4da6ff;">= Final Score (0-100)</strong></p>
+</div>
+""", unsafe_allow_html=True)
+
+# --- MOBILE SEARCH ---
 with st.expander("📱 Tap here for Mobile Search", expanded=False):
     with st.form(key='mobile_form'):
         m_col1, m_col2 = st.columns([1, 1])
@@ -168,7 +212,7 @@ if run_analysis:
         tab_fund, tab_tech = st.tabs(["💎 Value Analysis", "📈 Technical Analysis"])
 
         # ==========================================
-        # TAB 1: FUNDAMENTAL VALUE (FIXED PARSING)
+        # TAB 1: FUNDAMENTAL VALUE
         # ==========================================
         with tab_fund:
             topics = ["Unique Product/Moat", "Revenue Growth", "Competitive Advantage", "Profit Stability", "Management"]
@@ -177,75 +221,104 @@ if run_analysis:
             prog_bar = st.progress(0)
             status_text = st.empty()
             
-            for i, t in enumerate(topics):
-                prog_bar.progress((i)/5)
-                status_text.text(f"AI Analyzing: {t}...")
-                
-                # Call Local LLM
-                res, is_error = analyze_qualitative(data['name'], data['summary'], t)
-                
-                # --- ROBUST PARSING LOGIC ---
-                # We search for the first number between 0 and 4 (e.g., 3.5, 4.0, 2)
-                # This ignores headers like "SCORE|REASON" or weird formatting
-                match = re.search(r'\b([0-3](?:\.\d)?|4(?:\.0)?)\b', res)
-                
-                if match:
-                    s_str = match.group(1)
-                    s = float(s_str)
-                    # Remove the score, pipes, and keywords from the explanation
-                    r = res.replace(s_str, "").replace("|", "").replace("SCORE", "").replace("REASON", "").strip()
-                    # Remove leading/trailing punctuation/newlines often left behind
-                    r = r.strip(' :-=\n')
-                else:
-                    s, r = 0.0, res # Fallback
-
-                total_qual += s
-                qual_results.append((t, s, r))
+            # 1. Qualitative Analysis
+            col_q, col_v = st.columns([1.6, 1])
             
-            prog_bar.empty()
-            status_text.empty()
+            with col_q:
+                st.subheader("1. Qualitative Analysis")
+                for i, t in enumerate(topics):
+                    prog_bar.progress((i)/5)
+                    status_text.text(f"AI Analyzing: {t}...")
+                    
+                    # Call Local LLM
+                    res, is_error = analyze_qualitative(data['name'], data['summary'], t)
+                    
+                    # Robust Parsing
+                    match = re.search(r'\b([0-3](?:\.\d)?|4(?:\.0)?)\b', res)
+                    if match:
+                        s_str = match.group(1)
+                        s = float(s_str)
+                        r = res.replace(s_str, "").replace("|", "").replace("SCORE", "").replace("REASON", "").strip()
+                        r = r.strip(' :-=\n')
+                    else:
+                        s, r = 0.0, res 
 
+                    total_qual += s
+                    qual_results.append((t, s, r))
+                    
+                    with st.expander(f"Analyzing: {t}...", expanded=True):
+                        st.markdown(f"**Score: {s}/4** — {r}")
+
+                prog_bar.empty()
+                status_text.empty()
+
+            # 2. Valuation Analysis
             pe = data['pe']
-            if pe <= 0: mult, color_code = 1.0, "#8B0000"
-            elif pe <= 20: mult, color_code = 5.0, "#00C805"
-            elif pe >= 75: mult, color_code = 1.0, "#8B0000" 
+            pe_text = ""
+            
+            # Logic for Multiplier
+            if pe <= 0: 
+                mult = 1.0
+                color_code = "#FF4500" # Red
+                pe_text = "❌ Negative Earnings"
+            elif pe <= 20: 
+                mult = 5.0
+                color_code = "#00C805" # Green
+                pe_text = "✅ Undervalued (PE < 20)"
+            elif pe >= 75: 
+                mult = 1.0
+                color_code = "#FF4500" # Red
+                pe_text = "⚠️ Overvalued (PE > 75)"
             else:
+                # Interpolate between 20 and 75
                 pct = (pe - 20) / 55
                 mult = 5.0 - (pct * 4.0)
-                if mult >= 4.0: color_code = "#00C805"
-                elif mult >= 3.0: color_code = "#90EE90"
-                elif mult >= 2.0: color_code = "#FFA500"
-                else: color_code = "#FF4500"
+                if mult >= 4.0: 
+                    color_code = "#00C805"
+                    pe_text = "✅ Fairly Valued"
+                elif mult >= 3.0: 
+                    color_code = "#90EE90"
+                    pe_text = "⚖️ Fair Value"
+                elif mult >= 2.0: 
+                    color_code = "#FFA500"
+                    pe_text = "⚠️ Slightly Expensive"
+                else: 
+                    color_code = "#FF4500"
+                    pe_text = "⚠️ Expensive"
 
             mult = round(mult, 2) 
             final_score = round(total_qual * mult, 1) 
 
-            if st.session_state.layout_mode == 'desktop':
-                c1, c2 = st.columns([1.5, 1])
-                with c1:
-                    st.subheader("Qualitative Analysis (Local AI)")
-                    for item in qual_results:
-                        st.markdown(f"**{item[0]}**")
-                        st.progress(min(item[1]/4.0, 1.0)) 
-                        st.caption(f"**{item[1]}/4** — {item[2]}")
-                    st.info(f"Total Score: {total_qual:.1f} / 20")
-                with c2:
-                    st.subheader("Valuation")
-                    with st.container(border=True):
-                        st.metric("Price", f"{data['price']:.2f}")
-                        st.metric("PE Ratio", f"{pe:.2f}")
-                        st.markdown(f"<div class='multiplier-box' style='color:{color_code}; border:2px solid {color_code}'>x{mult}</div>", unsafe_allow_html=True)
-                
-                verdict_color = "#00C805" if final_score >= 75 else "#FFA500" if final_score >= 45 else "#FF0000"
-                st.markdown(f"""<div class="final-score-box" style="border-color: {verdict_color};"><h2 style="color:#333;margin:0;">VALUE SCORE</h2><h1 style="color:{verdict_color};font-size:80px;margin:0;">{final_score}</h1></div>""", unsafe_allow_html=True)
-            else:
-                for item in qual_results:
-                    with st.chat_message("assistant", avatar="🤖"):
-                        st.write(f"**{item[0]}**")
-                        st.write(f"⭐ {item[1]}")
-                        st.caption(item[2])
-                st.markdown(f"<div class='multiplier-box' style='color:{color_code}; border:2px solid {color_code}'>x{mult}</div>", unsafe_allow_html=True)
-                st.metric("Final Value Score", final_score)
+            with col_v:
+                st.subheader("2. Quantitative Valuation")
+                with st.container(border=True):
+                    st.caption(f"Price ({data['currency']})")
+                    st.metric("Price", f"{data['price']:.2f}", label_visibility="collapsed")
+                    
+                    st.caption("PE Ratio")
+                    st.metric("PE Ratio", f"{pe:.2f}", label_visibility="collapsed")
+                    
+                    st.divider()
+                    
+                    st.subheader("Valuation Multiplier")
+                    # The Multiplier Box
+                    st.markdown(
+                        f"""
+                        <div class="multiplier-box" style="border: 2px solid {color_code}; color: {color_code};">
+                            x{mult}
+                        </div>
+                        """, 
+                        unsafe_allow_html=True
+                    )
+                    # The Caption (Green Checkmark etc)
+                    if "Undervalued" in pe_text or "Fair" in pe_text:
+                        st.success(pe_text)
+                    else:
+                        st.warning(pe_text)
+
+            # Final Verdict
+            verdict_color = "#00C805" if final_score >= 75 else "#FFA500" if final_score >= 45 else "#FF0000"
+            st.markdown(f"""<div class="final-score-box" style="border-color: {verdict_color};"><h2 style="color:#333;margin:0;">VALUE SCORE</h2><h1 style="color:{verdict_color};font-size:80px;margin:0;">{final_score}</h1></div>""", unsafe_allow_html=True)
 
         # ==========================================
         # TAB 2: TECHNICAL ANALYSIS
