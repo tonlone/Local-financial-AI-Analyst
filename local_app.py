@@ -11,31 +11,25 @@ st.set_page_config(page_title="Local Value Investor", layout="wide", page_icon="
 # --- CSS STYLING ---
 st.markdown("""
 <style>
-    /* Multiplier Box (Green text, white bg, border) */
+    /* Multiplier Box */
     .multiplier-box {
-        font-size: 35px; 
-        font-weight: bold; 
-        text-align: center; 
-        padding: 15px; 
-        border-radius: 10px; 
-        background-color: #ffffff; 
-        margin-top: 10px;
-        margin-bottom: 10px;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        font-size: 35px; font-weight: bold; text-align: center; padding: 15px; 
+        border-radius: 10px; background-color: #ffffff; margin-top: 10px;
+        margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     }
-    /* Methodology Section in Sidebar */
+    /* Methodology Box */
     .methodology-box {
-        background-color: #262730;
-        padding: 15px;
-        border-radius: 10px;
-        border: 1px solid #444;
-        font-size: 14px;
-        margin-top: 20px;
+        background-color: #262730; padding: 15px; border-radius: 10px;
+        border: 1px solid #444; font-size: 14px; margin-top: 20px;
     }
     .final-score-box {
         text-align: center; padding: 20px; border-radius: 15px; 
         background-color: #ffffff; margin-top: 20px; border: 4px solid #ccc;
     }
+    /* Compact Metrics for Tab 3 */
+    div[data-testid="stMetricValue"] { font-size: 18px !important; }
+    div[data-testid="stMetricLabel"] { font-size: 12px !important; color: #888; }
+    
     div[data-testid="stForm"] button[kind="primary"] {
         background-color: #FF4B4B; color: white; border: none;
         font-weight: bold; font-size: 16px; padding: 0.5rem 1rem; width: 100%;
@@ -54,6 +48,16 @@ except:
     connection_status = False
 
 # --- DATA FUNCTIONS ---
+def fmt_num(val, is_pct=False, is_currency=False):
+    """Helper to format numbers like Finviz (B, T, %)"""
+    if val is None or val == "N/A": return "-"
+    if is_pct: return f"{val * 100:.2f}%"
+    if is_currency:
+        if val > 1e12: return f"{val/1e12:.2f}T"
+        if val > 1e9: return f"{val/1e9:.2f}B"
+        if val > 1e6: return f"{val/1e6:.2f}M"
+    return f"{val:.2f}"
+
 def get_stock_data(ticker):
     try:
         stock = yf.Ticker(ticker)
@@ -64,10 +68,13 @@ def get_stock_data(ticker):
         if price == 0 and not hist.empty: price = hist['Close'].iloc[-1]
         eps = info.get('forwardEps', info.get('trailingEps', 0))
         pe = price / eps if eps and eps > 0 else 0
+        
+        # Return raw_info to access all Finviz fields
         return {
             "price": price, "currency": info.get('currency', 'USD'), "pe": pe,
             "name": info.get('longName', ticker), "industry": info.get('industry', 'Unknown'),
-            "summary": info.get('longBusinessSummary', ''), "history": hist
+            "summary": info.get('longBusinessSummary', ''), "history": hist,
+            "raw_info": info 
         }
     except: return None
 
@@ -119,11 +126,9 @@ def analyze_qualitative(ticker, summary, topic):
                 {"role": "system", "content": "You are a strict financial analyst. Output only the requested format."},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.1,
-            max_tokens=800
+            temperature=0.1, max_tokens=800
         )
         raw_content = resp.choices[0].message.content
-        # Remove DeepSeek <think> tags
         clean_content = re.sub(r'<think>.*?</think>', '', raw_content, flags=re.DOTALL).strip()
         return clean_content, False
     except Exception as e:
@@ -137,8 +142,6 @@ if 'active_market' not in st.session_state: st.session_state.active_market = "US
 # --- SIDEBAR ---
 with st.sidebar:
     st.header("Analysis Tool")
-    
-    # 1. Search Form
     with st.form(key='desktop_form'):
         st.caption("Select Market")
         d_market = st.selectbox("Market", ["US", "Canada (TSX)", "HK (HKEX)"], label_visibility="collapsed")
@@ -148,18 +151,13 @@ with st.sidebar:
     
     st.markdown("---")
     
-    # 2. Connection Status
     if connection_status:
         try:
-            # Simple check to see if server responds
             client.models.list()
             st.success("🟢 LM Studio Connected")
-        except:
-             st.error("🔴 LM Studio Disconnected")
-    else:
-        st.error("🔴 LM Studio Disconnected")
+        except: st.error("🔴 LM Studio Disconnected")
+    else: st.error("🔴 LM Studio Disconnected")
 
-    # 3. Methodology Section (Fixed Indentation)
     st.markdown("""
 <div class="methodology-box">
 <h4 style="margin-top:0; color: #4da6ff;">Methodology:</h4>
@@ -209,7 +207,9 @@ if run_analysis:
     if data:
         st.header(f"{data['name']} ({final_t})")
         st.caption(f"Industry: {data['industry']} | Currency: {data['currency']}")
-        tab_fund, tab_tech = st.tabs(["💎 Value Analysis", "📈 Technical Analysis"])
+        
+        # --- TABS CONFIGURATION ---
+        tab_fund, tab_tech, tab_fin = st.tabs(["💎 Value Analysis", "📈 Technical Analysis", "📊 Financials"])
 
         # ==========================================
         # TAB 1: FUNDAMENTAL VALUE
@@ -221,7 +221,6 @@ if run_analysis:
             prog_bar = st.progress(0)
             status_text = st.empty()
             
-            # 1. Qualitative Analysis
             col_q, col_v = st.columns([1.6, 1])
             
             with col_q:
@@ -229,62 +228,28 @@ if run_analysis:
                 for i, t in enumerate(topics):
                     prog_bar.progress((i)/5)
                     status_text.text(f"AI Analyzing: {t}...")
-                    
-                    # Call Local LLM
                     res, is_error = analyze_qualitative(data['name'], data['summary'], t)
-                    
-                    # Robust Parsing
                     match = re.search(r'\b([0-3](?:\.\d)?|4(?:\.0)?)\b', res)
                     if match:
-                        s_str = match.group(1)
-                        s = float(s_str)
-                        r = res.replace(s_str, "").replace("|", "").replace("SCORE", "").replace("REASON", "").strip()
-                        r = r.strip(' :-=\n')
-                    else:
-                        s, r = 0.0, res 
-
+                        s_str = match.group(1); s = float(s_str)
+                        r = res.replace(s_str, "").replace("|", "").replace("SCORE", "").replace("REASON", "").strip().strip(' :-=\n')
+                    else: s, r = 0.0, res 
                     total_qual += s
                     qual_results.append((t, s, r))
-                    
-                    with st.expander(f"Analyzing: {t}...", expanded=True):
-                        st.markdown(f"**Score: {s}/4** — {r}")
+                    with st.expander(f"Analyzing: {t}...", expanded=True): st.markdown(f"**Score: {s}/4** — {r}")
 
-                prog_bar.empty()
-                status_text.empty()
+                prog_bar.empty(); status_text.empty()
 
-            # 2. Valuation Analysis
             pe = data['pe']
-            pe_text = ""
-            
-            # Logic for Multiplier
-            if pe <= 0: 
-                mult = 1.0
-                color_code = "#FF4500" # Red
-                pe_text = "❌ Negative Earnings"
-            elif pe <= 20: 
-                mult = 5.0
-                color_code = "#00C805" # Green
-                pe_text = "✅ Undervalued (PE < 20)"
-            elif pe >= 75: 
-                mult = 1.0
-                color_code = "#FF4500" # Red
-                pe_text = "⚠️ Overvalued (PE > 75)"
+            if pe <= 0: mult, color_code, pe_text = 1.0, "#FF4500", "❌ Negative Earnings"
+            elif pe <= 20: mult, color_code, pe_text = 5.0, "#00C805", "✅ Undervalued (PE < 20)"
+            elif pe >= 75: mult, color_code, pe_text = 1.0, "#FF4500", "⚠️ Overvalued (PE > 75)"
             else:
-                # Interpolate between 20 and 75
-                pct = (pe - 20) / 55
-                mult = 5.0 - (pct * 4.0)
-                if mult >= 4.0: 
-                    color_code = "#00C805"
-                    pe_text = "✅ Fairly Valued"
-                elif mult >= 3.0: 
-                    color_code = "#90EE90"
-                    pe_text = "⚖️ Fair Value"
-                elif mult >= 2.0: 
-                    color_code = "#FFA500"
-                    pe_text = "⚠️ Slightly Expensive"
-                else: 
-                    color_code = "#FF4500"
-                    pe_text = "⚠️ Expensive"
+                pct = (pe - 20) / 55; mult = 5.0 - (pct * 4.0)
+                if mult >= 4.0: color_code, pe_text = "#00C805", "✅ Fairly Valued"
+                elif mult >= 3.0: color_code, pe_text = "#90EE90", "⚖️ Fair Value"
+                elif mult >= 2.0: color_code, pe_text = "#FFA500", "⚠️ Slightly Expensive"
+                else: color_code, pe_text = "#FF4500", "⚠️ Expensive"
 
             mult = round(mult, 2) 
             final_score = round(total_qual * mult, 1) 
@@ -292,31 +257,13 @@ if run_analysis:
             with col_v:
                 st.subheader("2. Quantitative Valuation")
                 with st.container(border=True):
-                    st.caption(f"Price ({data['currency']})")
-                    st.metric("Price", f"{data['price']:.2f}", label_visibility="collapsed")
-                    
-                    st.caption("PE Ratio")
-                    st.metric("PE Ratio", f"{pe:.2f}", label_visibility="collapsed")
-                    
-                    st.divider()
-                    
-                    st.subheader("Valuation Multiplier")
-                    # The Multiplier Box
-                    st.markdown(
-                        f"""
-                        <div class="multiplier-box" style="border: 2px solid {color_code}; color: {color_code};">
-                            x{mult}
-                        </div>
-                        """, 
-                        unsafe_allow_html=True
-                    )
-                    # The Caption (Green Checkmark etc)
-                    if "Undervalued" in pe_text or "Fair" in pe_text:
-                        st.success(pe_text)
-                    else:
-                        st.warning(pe_text)
+                    st.caption(f"Price ({data['currency']})"); st.metric("Price", f"{data['price']:.2f}", label_visibility="collapsed")
+                    st.caption("PE Ratio"); st.metric("PE Ratio", f"{pe:.2f}", label_visibility="collapsed")
+                    st.divider(); st.subheader("Valuation Multiplier")
+                    st.markdown(f"""<div class="multiplier-box" style="border: 2px solid {color_code}; color: {color_code};">x{mult}</div>""", unsafe_allow_html=True)
+                    if "Undervalued" in pe_text or "Fair" in pe_text: st.success(pe_text)
+                    else: st.warning(pe_text)
 
-            # Final Verdict
             verdict_color = "#00C805" if final_score >= 75 else "#FFA500" if final_score >= 45 else "#FF0000"
             st.markdown(f"""<div class="final-score-box" style="border-color: {verdict_color};"><h2 style="color:#333;margin:0;">VALUE SCORE</h2><h1 style="color:{verdict_color};font-size:80px;margin:0;">{final_score}</h1></div>""", unsafe_allow_html=True)
 
@@ -326,40 +273,80 @@ if run_analysis:
         with tab_tech:
             tech = calculate_technicals(data['history'])
             if tech:
-                action = "WAIT / WATCH 🟡"
-                reason = "Market is indecisive."
+                action = "WAIT / WATCH 🟡"; reason = "Market is indecisive."
                 if "Uptrend" in tech['trend']:
-                    if tech['last_price'] < tech['support'] * 1.05:
-                        action = "BUY (Support Bounce) 🟢"; reason = "Uptrend + Near Support Level."
-                    elif tech['vol_ratio'] > 1.5:
-                        action = "STRONG BUY (Breakout) 🚀"; reason = "Uptrend + High Volume Surge."
-                    elif tech['is_squeezing']:
-                        action = "PREPARE TO BUY (VCP) 🔵"; reason = "Volatility Squeeze (VCP) detected."
-                    elif tech['rsi'] > 70:
-                        action = "HOLD / TAKE PROFIT 🟠"; reason = "Uptrend but Overbought (RSI > 70)."
-                    else:
-                        action = "BUY / HOLD 🟢"; reason = "Healthy Uptrend."
+                    if tech['last_price'] < tech['support'] * 1.05: action, reason = "BUY (Support Bounce) 🟢", "Uptrend + Near Support."
+                    elif tech['vol_ratio'] > 1.5: action, reason = "STRONG BUY (Breakout) 🚀", "Uptrend + High Volume."
+                    elif tech['is_squeezing']: action, reason = "PREPARE TO BUY (VCP) 🔵", "Volatility Squeeze detected."
+                    elif tech['rsi'] > 70: action, reason = "HOLD / TAKE PROFIT 🟠", "Uptrend but Overbought."
+                    else: action, reason = "BUY / HOLD 🟢", "Healthy Uptrend."
                 else:
-                    if tech['last_price'] < tech['support']:
-                        action = "SELL / AVOID 🔴"; reason = "Price breaking below Support."
-                    elif tech['rsi'] < 30:
-                        action = "WATCH (Oversold) 🟡"; reason = "Downtrend but potential oversold bounce."
-                    else:
-                        action = "AVOID / SELL 🔴"; reason = "Stock is in a Downtrend."
+                    if tech['last_price'] < tech['support']: action, reason = "SELL / AVOID 🔴", "Breaking below Support."
+                    elif tech['rsi'] < 30: action, reason = "WATCH (Oversold) 🟡", "Potential oversold bounce."
+                    else: action, reason = "AVOID / SELL 🔴", "Stock is in a Downtrend."
 
-                st.subheader(f"Technical Verdict: {action}")
-                st.info(f"📝 Reason: {reason}")
+                st.subheader(f"Technical Verdict: {action}"); st.info(f"📝 Reason: {reason}")
                 tc1, tc2, tc3, tc4 = st.columns(4)
                 tc1.metric("Trend", tech['trend'])
-                tc2.metric("RSI (14)", f"{tech['rsi']:.1f}", delta="Over" if tech['rsi']>70 else "Low" if tech['rsi']<30 else "OK", delta_color="inverse")
+                tc2.metric("RSI (14)", f"{tech['rsi']:.1f}", delta="High" if tech['rsi']>70 else "Low" if tech['rsi']<30 else "OK", delta_color="inverse")
                 tc3.metric("Vol Ratio", f"{tech['vol_ratio']:.2f}x")
                 tc4.metric("Squeeze", "YES" if tech['is_squeezing'] else "No")
                 c_sup, c_res = st.columns(2)
-                c_sup.success(f"🛡️ Support: {tech['support']:.2f}")
-                c_res.error(f"🚧 Resistance: {tech['resistance']:.2f}")
-                st.subheader("Price vs Moving Averages")
+                c_sup.success(f"🛡️ Support: {tech['support']:.2f}"); c_res.error(f"🚧 Resistance: {tech['resistance']:.2f}")
                 st.line_chart(data['history'][['Close', 'SMA_50', 'SMA_200']], color=["#0000FF", "#FFA500", "#FF0000"]) 
-            else:
-                st.warning("Not enough historical data.")
+            else: st.warning("Not enough historical data.")
+
+        # ==========================================
+        # TAB 3: FINANCIALS (FINVIZ STYLE)
+        # ==========================================
+        with tab_fin:
+            i = data['raw_info']
+            
+            # Helper to make rows
+            def make_row(cols):
+                c = st.columns(len(cols))
+                for idx, (label, val) in enumerate(cols):
+                    c[idx].metric(label, val)
+
+            st.caption("Key Fundamentals")
+            
+            # Row 1: Valuation
+            make_row([
+                ("Market Cap", fmt_num(i.get('marketCap'), is_currency=True)),
+                ("Enterprise Val", fmt_num(i.get('enterpriseValue'), is_currency=True)),
+                ("Trailing P/E", fmt_num(i.get('trailingPE'))),
+                ("Forward P/E", fmt_num(i.get('forwardPE')))
+            ])
+            st.divider()
+            
+            # Row 2: Efficiency & Ratios
+            make_row([
+                ("PEG Ratio", fmt_num(i.get('pegRatio'))),
+                ("Price/Sales", fmt_num(i.get('priceToSalesTrailing12Months'))),
+                ("Price/Book", fmt_num(i.get('priceToBook'))),
+                ("Beta", fmt_num(i.get('beta')))
+            ])
+            st.divider()
+            
+            # Row 3: Profitability
+            make_row([
+                ("Profit Margin", fmt_num(i.get('profitMargins'), is_pct=True)),
+                ("Gross Margin", fmt_num(i.get('grossMargins'), is_pct=True)),
+                ("ROA", fmt_num(i.get('returnOnAssets'), is_pct=True)),
+                ("ROE", fmt_num(i.get('returnOnEquity'), is_pct=True))
+            ])
+            st.divider()
+            
+            # Row 4: Income & Dividend
+            make_row([
+                ("EPS (ttm)", fmt_num(i.get('trailingEps'))),
+                ("Revenue (ttm)", fmt_num(i.get('totalRevenue'), is_currency=True)),
+                ("Dividend Yield", fmt_num(i.get('dividendYield'), is_pct=True)),
+                ("Target Price", fmt_num(i.get('targetMeanPrice')))
+            ])
+            
+            st.markdown("---")
+            st.caption(f"Fiscal Year End: {i.get('lastFiscalYearEnd', '-')}")
+
     else:
         st.error(f"Ticker '{final_t}' not found.")
