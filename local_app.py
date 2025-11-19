@@ -3,7 +3,7 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 from openai import OpenAI
-import re  # <--- NEW IMPORT FOR DEEPSEEK
+import re
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(page_title="Local Value Investor", layout="wide", page_icon="📈")
@@ -11,148 +11,83 @@ st.set_page_config(page_title="Local Value Investor", layout="wide", page_icon="
 # --- CSS STYLING ---
 st.markdown("""
 <style>
-    /* Multiplier Box */
     .multiplier-box {
-        font-size: 30px;
-        font-weight: bold;
-        text-align: center;
-        padding: 10px;
-        border-radius: 10px;
-        background-color: #f9f9f9;
-        margin-top: 10px;
+        font-size: 30px; font-weight: bold; text-align: center; padding: 10px;
+        border-radius: 10px; background-color: #f9f9f9; margin-top: 10px;
     }
-    /* Final Score Box */
     .final-score-box {
-        text-align: center; 
-        padding: 20px; 
-        border-radius: 15px; 
-        background-color: #ffffff; 
-        margin-top: 20px;
-        border: 4px solid #ccc;
+        text-align: center; padding: 20px; border-radius: 15px; 
+        background-color: #ffffff; margin-top: 20px; border: 4px solid #ccc;
     }
-    /* Technical Verdict Box */
-    .tech-box {
-        padding: 15px;
-        border-radius: 10px;
-        background-color: #f0f2f6;
-        margin-bottom: 10px;
-        border-left: 5px solid #333;
-    }
-    /* Red Button Styling */
     div[data-testid="stForm"] button[kind="primary"] {
-        background-color: #FF4B4B;
-        color: white;
-        border: none;
-        font-weight: bold;
-        font-size: 16px;
-        padding: 0.5rem 1rem;
-        width: 100%;
+        background-color: #FF4B4B; color: white; border: none;
+        font-weight: bold; font-size: 16px; padding: 0.5rem 1rem; width: 100%;
     }
     div[data-testid="stForm"] button[kind="primary"]:hover {
-        background-color: #FF0000;
-        border-color: #FF0000;
+        background-color: #FF0000; border-color: #FF0000;
     }
 </style>
 """, unsafe_allow_html=True)
 
 # --- LOCAL AI CLIENT SETUP ---
-# We point the client to LM Studio's local server
 try:
     client = OpenAI(base_url="http://localhost:1234/v1", api_key="lm-studio")
 except Exception as e:
-    st.error(f"Could not connect to LM Studio. Make sure the Local Server is running at http://localhost:1234. Error: {e}")
+    st.error(f"Could not connect to LM Studio. Error: {e}")
     st.stop()
 
 # --- DATA FUNCTIONS ---
-
 def get_stock_data(ticker):
-    """Fetches financial data + 1 Year History"""
     try:
         stock = yf.Ticker(ticker)
         info = stock.info
         if not info: return None
-        
         price = info.get('currentPrice', 0)
-        
-        # Fetch 1 Year history for Technical Analysis (SMA 200)
         hist = stock.history(period="1y")
-        
-        if price == 0 and not hist.empty:
-            price = hist['Close'].iloc[-1]
-
+        if price == 0 and not hist.empty: price = hist['Close'].iloc[-1]
         eps = info.get('forwardEps', info.get('trailingEps', 0))
         pe = price / eps if eps and eps > 0 else 0
-        
         return {
-            "price": price,
-            "currency": info.get('currency', 'USD'),
-            "pe": pe,
-            "name": info.get('longName', ticker),
-            "industry": info.get('industry', 'Unknown'),
-            "summary": info.get('longBusinessSummary', ''),
-            "history": hist
+            "price": price, "currency": info.get('currency', 'USD'), "pe": pe,
+            "name": info.get('longName', ticker), "industry": info.get('industry', 'Unknown'),
+            "summary": info.get('longBusinessSummary', ''), "history": hist
         }
     except: return None
 
 def calculate_technicals(df):
-    """Calculates RSI, SMA, Support/Resistance, VCP"""
-    if df.empty or len(df) < 200:
-        return None
-    
-    # 1. Moving Averages
+    if df.empty or len(df) < 200: return None
     df['SMA_50'] = df['Close'].rolling(window=50).mean()
     df['SMA_200'] = df['Close'].rolling(window=200).mean()
-    
-    # 2. RSI (14)
     delta = df['Close'].diff()
     gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
     loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
     rs = gain / loss
     df['RSI'] = 100 - (100 / (1 + rs))
-    
-    # 3. Volume Analysis
     avg_vol = df['Volume'].rolling(window=20).mean().iloc[-1]
     curr_vol = df['Volume'].iloc[-1]
     vol_ratio = curr_vol / avg_vol if avg_vol > 0 else 1.0
-
-    # 4. Support & Resistance (Last 3 months / 60 days)
     recent_data = df.tail(60)
     support = recent_data['Low'].min()
     resistance = recent_data['High'].max()
-    
-    # 5. VCP (Volatility Contraction) - Simplified
     volatility_short = df['Close'].rolling(window=10).std().iloc[-1]
     volatility_long = df['Close'].rolling(window=60).std().iloc[-1]
     is_squeezing = volatility_short < (volatility_long * 0.5)
-
-    # 6. Trend State
     current_price = df['Close'].iloc[-1]
     sma_50 = df['SMA_50'].iloc[-1]
     sma_200 = df['SMA_200'].iloc[-1]
     rsi = df['RSI'].iloc[-1]
-
     trend = "Neutral"
     if current_price > sma_200:
         trend = "Uptrend 🟢" if current_price > sma_50 else "Weak Uptrend 🟡"
     else:
         trend = "Downtrend 🔴"
-
     return {
-        "trend": trend,
-        "rsi": rsi,
-        "support": support,
-        "resistance": resistance,
-        "vol_ratio": vol_ratio,
-        "is_squeezing": is_squeezing,
-        "sma_50": sma_50,
-        "sma_200": sma_200,
-        "last_price": current_price
+        "trend": trend, "rsi": rsi, "support": support, "resistance": resistance,
+        "vol_ratio": vol_ratio, "is_squeezing": is_squeezing,
+        "sma_50": sma_50, "sma_200": sma_200, "last_price": current_price
     }
 
 def analyze_qualitative(ticker, summary, topic):
-    """
-    Updated to handle DeepSeek R1's <think> tags while still supporting Qwen/Llama.
-    """
     prompt = (
         f"You are a financial analyst. Analyze {ticker} regarding '{topic}'. "
         f"Context: {summary}. "
@@ -160,7 +95,6 @@ def analyze_qualitative(ticker, summary, topic):
         f"Provide a 1 sentence reason. "
         f"Strict Format: SCORE|REASON"
     )
-    
     try:
         resp = client.chat.completions.create(
             model="local-model", 
@@ -169,50 +103,38 @@ def analyze_qualitative(ticker, summary, topic):
                 {"role": "user", "content": prompt}
             ],
             temperature=0.1,
-            max_tokens=800 # Increased to allow DeepSeek room to "think"
+            max_tokens=800
         )
-        
         raw_content = resp.choices[0].message.content
-        
-        # --- CLEANUP LOGIC ---
-        # 1. Remove DeepSeek <think>...</think> blocks
+        # Remove DeepSeek <think> tags
         clean_content = re.sub(r'<think>.*?</think>', '', raw_content, flags=re.DOTALL).strip()
-        
         return clean_content, False
     except Exception as e:
         return f"0.0|Error: {str(e)}", True
 
 # --- INPUT LOGIC ---
-
 if 'layout_mode' not in st.session_state: st.session_state.layout_mode = 'desktop' 
 if 'active_ticker' not in st.session_state: st.session_state.active_ticker = "NVDA"
 if 'active_market' not in st.session_state: st.session_state.active_market = "US"
 
-# 1. DESKTOP SIDEBAR
 with st.sidebar:
     st.header("Local AI Analyst")
     with st.form(key='desktop_form'):
         d_market = st.selectbox("Market", ["US", "Canada (TSX)", "HK (HKEX)"], label_visibility="collapsed")
         d_ticker = st.text_input("Ticker", value="NVDA", label_visibility="collapsed").upper()
         d_submit = st.form_submit_button("Analyze Stock", type="primary") 
-    st.markdown("---")
     st.caption("Connects to LM Studio (Qwen, DeepSeek, Llama)")
-    
-    # Connection Status Indicator
     try:
         models = client.models.list()
         st.success("🟢 LM Studio Connected")
     except:
         st.error("🔴 LM Studio Disconnected")
 
-# 2. MOBILE EXPANDER
 with st.expander("📱 Tap here for Mobile Search", expanded=False):
     with st.form(key='mobile_form'):
         m_col1, m_col2 = st.columns([1, 1])
-        with m_col1:
-            m_market = st.selectbox("Market", ["US", "Canada (TSX)", "HK (HKEX)"], key='m_m')
-        with m_col2:
-            m_ticker = st.text_input("Ticker", value="NVDA", key='m_t').upper()
+        with m_col1: m_market = st.selectbox("Market", ["US", "Canada (TSX)", "HK (HKEX)"], key='m_m')
+        with m_col2: m_ticker = st.text_input("Ticker", value="NVDA", key='m_t').upper()
         m_submit = st.form_submit_button("Analyze (Mobile)", type="primary")
 
 run_analysis = False
@@ -228,10 +150,7 @@ elif m_submit:
     run_analysis = True
 
 # --- MAIN EXECUTION ---
-
 if run_analysis:
-    
-    # Ticker Logic
     raw_t = st.session_state.active_ticker
     mkt = st.session_state.active_market
     final_t = raw_t
@@ -246,19 +165,15 @@ if run_analysis:
     if data:
         st.header(f"{data['name']} ({final_t})")
         st.caption(f"Industry: {data['industry']} | Currency: {data['currency']}")
-
-        # --- TOP LEVEL TABS (Fundamental vs Technical) ---
         tab_fund, tab_tech = st.tabs(["💎 Value Analysis", "📈 Technical Analysis"])
 
         # ==========================================
-        # TAB 1: FUNDAMENTAL VALUE (Local LLM)
+        # TAB 1: FUNDAMENTAL VALUE (FIXED PARSING)
         # ==========================================
         with tab_fund:
             topics = ["Unique Product/Moat", "Revenue Growth", "Competitive Advantage", "Profit Stability", "Management"]
             qual_results = []
             total_qual = 0.0 
-            
-            # Create a placeholder for the progress bar
             prog_bar = st.progress(0)
             status_text = st.empty()
             
@@ -269,28 +184,27 @@ if run_analysis:
                 # Call Local LLM
                 res, is_error = analyze_qualitative(data['name'], data['summary'], t)
                 
-                try: 
-                    # Parsing logic to handle potential extra text from local models
-                    if "|" in res:
-                        s, r = res.split('|', 1)
-                        # Clean up score if it has extra characters (removes stray letters)
-                        s = ''.join(c for c in s if c.isdigit() or c == '.')
-                        s = float(s)
-                    else:
-                        s, r = 0.0, res # Fallback if format fails
-                except: 
-                    s, r = 0.0, "Error parsing AI response"
+                # --- ROBUST PARSING LOGIC ---
+                # We search for the first number between 0 and 4 (e.g., 3.5, 4.0, 2)
+                # This ignores headers like "SCORE|REASON" or weird formatting
+                match = re.search(r'\b([0-3](?:\.\d)?|4(?:\.0)?)\b', res)
                 
-                # Cap score at 4.0 just in case
-                if s > 4.0: s = 4.0
-                
+                if match:
+                    s_str = match.group(1)
+                    s = float(s_str)
+                    # Remove the score, pipes, and keywords from the explanation
+                    r = res.replace(s_str, "").replace("|", "").replace("SCORE", "").replace("REASON", "").strip()
+                    # Remove leading/trailing punctuation/newlines often left behind
+                    r = r.strip(' :-=\n')
+                else:
+                    s, r = 0.0, res # Fallback
+
                 total_qual += s
                 qual_results.append((t, s, r))
             
             prog_bar.empty()
             status_text.empty()
 
-            # Valuation Logic
             pe = data['pe']
             if pe <= 0: mult, color_code = 1.0, "#8B0000"
             elif pe <= 20: mult, color_code = 5.0, "#00C805"
@@ -306,7 +220,6 @@ if run_analysis:
             mult = round(mult, 2) 
             final_score = round(total_qual * mult, 1) 
 
-            # Layout Render (Desktop vs Mobile)
             if st.session_state.layout_mode == 'desktop':
                 c1, c2 = st.columns([1.5, 1])
                 with c1:
@@ -325,8 +238,7 @@ if run_analysis:
                 
                 verdict_color = "#00C805" if final_score >= 75 else "#FFA500" if final_score >= 45 else "#FF0000"
                 st.markdown(f"""<div class="final-score-box" style="border-color: {verdict_color};"><h2 style="color:#333;margin:0;">VALUE SCORE</h2><h1 style="color:{verdict_color};font-size:80px;margin:0;">{final_score}</h1></div>""", unsafe_allow_html=True)
-            
-            else: # Mobile
+            else:
                 for item in qual_results:
                     with st.chat_message("assistant", avatar="🤖"):
                         st.write(f"**{item[0]}**")
@@ -340,65 +252,41 @@ if run_analysis:
         # ==========================================
         with tab_tech:
             tech = calculate_technicals(data['history'])
-            
             if tech:
-                # --- 1. VERDICT LOGIC ---
                 action = "WAIT / WATCH 🟡"
                 reason = "Market is indecisive."
-                
-                # Basic Rules
                 if "Uptrend" in tech['trend']:
                     if tech['last_price'] < tech['support'] * 1.05:
-                        action = "BUY (Support Bounce) 🟢"
-                        reason = "Uptrend + Near Support Level."
+                        action = "BUY (Support Bounce) 🟢"; reason = "Uptrend + Near Support Level."
                     elif tech['vol_ratio'] > 1.5:
-                        action = "STRONG BUY (Breakout) 🚀"
-                        reason = "Uptrend + High Volume Surge."
+                        action = "STRONG BUY (Breakout) 🚀"; reason = "Uptrend + High Volume Surge."
                     elif tech['is_squeezing']:
-                        action = "PREPARE TO BUY (VCP) 🔵"
-                        reason = "Volatility Squeeze (VCP) detected. Watch for breakout."
+                        action = "PREPARE TO BUY (VCP) 🔵"; reason = "Volatility Squeeze (VCP) detected."
                     elif tech['rsi'] > 70:
-                        action = "HOLD / TAKE PROFIT 🟠"
-                        reason = "Uptrend but Overbought (RSI > 70)."
+                        action = "HOLD / TAKE PROFIT 🟠"; reason = "Uptrend but Overbought (RSI > 70)."
                     else:
-                        action = "BUY / HOLD 🟢"
-                        reason = "Healthy Uptrend."
-                else: # Downtrend
+                        action = "BUY / HOLD 🟢"; reason = "Healthy Uptrend."
+                else:
                     if tech['last_price'] < tech['support']:
-                        action = "SELL / AVOID 🔴"
-                        reason = "Price breaking below Support."
+                        action = "SELL / AVOID 🔴"; reason = "Price breaking below Support."
                     elif tech['rsi'] < 30:
-                        action = "WATCH (Oversold) 🟡"
-                        reason = "Downtrend but potential oversold bounce."
+                        action = "WATCH (Oversold) 🟡"; reason = "Downtrend but potential oversold bounce."
                     else:
-                        action = "AVOID / SELL 🔴"
-                        reason = "Stock is in a Downtrend."
+                        action = "AVOID / SELL 🔴"; reason = "Stock is in a Downtrend."
 
-                # --- 2. UI LAYOUT ---
                 st.subheader(f"Technical Verdict: {action}")
                 st.info(f"📝 Reason: {reason}")
-
-                # Metrics Row
                 tc1, tc2, tc3, tc4 = st.columns(4)
-                tc1.metric("Trend (SMA200)", tech['trend'])
-                tc2.metric("RSI (14)", f"{tech['rsi']:.1f}", delta="Overbought" if tech['rsi']>70 else "Oversold" if tech['rsi']<30 else "Neutral", delta_color="inverse")
-                tc3.metric("Volume Ratio", f"{tech['vol_ratio']:.2f}x", delta="High Vol" if tech['vol_ratio']>1.2 else "Normal")
-                tc4.metric("VCP / Squeeze", "YES" if tech['is_squeezing'] else "No")
-
-                # Levels
+                tc1.metric("Trend", tech['trend'])
+                tc2.metric("RSI (14)", f"{tech['rsi']:.1f}", delta="Over" if tech['rsi']>70 else "Low" if tech['rsi']<30 else "OK", delta_color="inverse")
+                tc3.metric("Vol Ratio", f"{tech['vol_ratio']:.2f}x")
+                tc4.metric("Squeeze", "YES" if tech['is_squeezing'] else "No")
                 c_sup, c_res = st.columns(2)
-                c_sup.success(f"🛡️ Support (3M Low): {tech['support']:.2f}")
-                c_res.error(f"🚧 Resistance (3M High): {tech['resistance']:.2f}")
-
-                # Chart
-                st.subheader("Price vs Moving Averages (1 Year)")
-                chart_data = data['history'][['Close', 'SMA_50', 'SMA_200']]
-                st.line_chart(chart_data, color=["#0000FF", "#FFA500", "#FF0000"]) 
-                
-                st.caption("Blue: Price | Orange: 50 SMA | Red: 200 SMA")
-
+                c_sup.success(f"🛡️ Support: {tech['support']:.2f}")
+                c_res.error(f"🚧 Resistance: {tech['resistance']:.2f}")
+                st.subheader("Price vs Moving Averages")
+                st.line_chart(data['history'][['Close', 'SMA_50', 'SMA_200']], color=["#0000FF", "#FFA500", "#FF0000"]) 
             else:
-                st.warning("Not enough historical data to perform Technical Analysis (Need > 200 days).")
-
+                st.warning("Not enough historical data.")
     else:
         st.error(f"Ticker '{final_t}' not found.")
