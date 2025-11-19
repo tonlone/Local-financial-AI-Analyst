@@ -301,21 +301,31 @@ def calculate_technicals(df):
     }
 
 def analyze_qualitative(ticker, summary, topic):
-    # Language Instruction
-    lang_instruction = "Answer in Traditional Chinese (繁體中文). Ensure all characters are Traditional, not Simplified." if st.session_state.language == 'CN' else "Answer in English."
+    # --- STRONGER PROMPT FOR CHINESE ---
+    if st.session_state.language == 'CN':
+        system_role = "You are a strict financial analyst. You MUST output in Traditional Chinese (繁體中文)."
+        lang_instruction = (
+            "IMPORTANT: The Context provided is in English, but your analysis and reason MUST be written in Traditional Chinese (繁體中文). "
+            "Do NOT write the reason in English. Translate your thoughts."
+            "\n\nExample Output format: 3.5|該公司擁有強大的品牌優勢，且現金流穩定。"
+        )
+    else:
+        system_role = "You are a strict financial analyst."
+        lang_instruction = "Answer in English."
     
     prompt = (
-        f"You are a financial analyst. Analyze {ticker} regarding '{topic}'. "
+        f"Analyze {ticker} regarding '{topic}'. "
         f"Context: {summary}. "
         f"Give a specific score from 0.0 to 4.0 (use 1 decimal place). "
         f"Provide a 1 sentence reason. {lang_instruction} "
         f"Strict Format: SCORE|REASON"
     )
+    
     try:
         resp = client.chat.completions.create(
             model="local-model", 
             messages=[
-                {"role": "system", "content": "You are a strict financial analyst. Output only the requested format. If answering in Chinese, use Traditional Chinese characters only."},
+                {"role": "system", "content": system_role},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.1, max_tokens=800
