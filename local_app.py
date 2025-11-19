@@ -31,7 +31,7 @@ T = {
         "qual_score": "Qualitative Score (0-20)",
         "qual_detail": "(5 topics x 4 pts)",
         "val_mult": "Valuation Multiplier (1-5)",
-        "val_detail": "(Based on Hist. PE Range)",
+        "val_detail": "(Based on Forward PE Range)",
         "final_score": "= Final Score (0-100)",
         "tab_value": "💎 Value Analysis",
         "tab_tech": "📈 Technical Analysis",
@@ -46,7 +46,8 @@ T = {
         "val_analysis_header": "1. Qualitative Analysis",
         "quant_val_header": "2. Quantitative Valuation",
         "price": "Price",
-        "pe_ratio": "Current PE",
+        "pe_ttm": "Trailing PE (TTM)",
+        "pe_ratio": "Forward PE (Used for Calc)",
         "multiplier_label": "Valuation Multiplier",
         
         # Score Calculation Labels
@@ -56,9 +57,9 @@ T = {
         "score_calc_title": "VALUE SCORE CALCULATION",
 
         # Valuation Specifics
-        "hist_low_pe": "Hist. Low PE (1Y)",
-        "hist_high_pe": "Hist. High PE (1Y)",
-        "pe_pos": "PE Position (1Y)",
+        "hist_low_pe": "Hist. Low PE (5Y)",
+        "hist_high_pe": "Hist. High PE (5Y)",
+        "pe_pos": "PE Position (5Y)",
         "pe_pos_low": "Low (Cheap)",
         "pe_pos_high": "High (Expensive)",
         "grade_strong_buy": "Very Excellent / Strong Buy",
@@ -71,6 +72,12 @@ T = {
         "verdict_buy": "BUY", "verdict_sell": "SELL", "verdict_hold": "HOLD",
         "tech_verdict": "Technical Verdict", "reason": "Reason",
         "support": "Support", "resistance": "Resistance", "trend": "Trend", "squeeze": "Squeeze",
+        
+        # Technical Metrics (NEW)
+        "lbl_rsi": "RSI (14)",
+        "lbl_vol": "Vol Ratio",
+        "status_high": "High", "status_low": "Low", "status_ok": "OK",
+        
         "recent_div": "💰 Recent Dividend History (Last 10)",
         "no_div": "No recent dividend history available.",
         "fiscal_year": "Fiscal Year End",
@@ -106,7 +113,7 @@ T = {
         "qual_score": "定性評分 (0-20)",
         "qual_detail": "(5個主題 x 4分)",
         "val_mult": "估值倍數 (1-5)",
-        "val_detail": "(基於歷史 PE 區間)",
+        "val_detail": "(基於預測 PE 區間)",
         "final_score": "= 最終評分 (0-100)",
         "tab_value": "💎 價值分析",
         "tab_tech": "📈 技術分析",
@@ -119,7 +126,8 @@ T = {
         "val_analysis_header": "1. 定性分析 (AI)",
         "quant_val_header": "2. 量化估值",
         "price": "當前股價",
-        "pe_ratio": "當前 PE",
+        "pe_ttm": "歷史市盈率 (Trailing PE)",
+        "pe_ratio": "預測市盈率 (Forward PE)",
         "multiplier_label": "本益比乘數 (Multiplier)",
         
         # Score Calculation Labels
@@ -129,8 +137,8 @@ T = {
         "score_calc_title": "價值評分計算",
 
         # Valuation Specifics
-        "hist_low_pe": "歷史最低 PE (1年)",
-        "hist_high_pe": "歷史最高 PE (1年)",
+        "hist_low_pe": "歷史最低 PE (5年)",
+        "hist_high_pe": "歷史最高 PE (5年)",
         "pe_pos": "目前 PE 位置區間",
         "pe_pos_low": "低位 (便宜)",
         "pe_pos_high": "高位 (昂貴)",
@@ -144,6 +152,12 @@ T = {
         "verdict_buy": "買入", "verdict_sell": "賣出", "verdict_hold": "持有",
         "tech_verdict": "技術面結論", "reason": "理由",
         "support": "支持位", "resistance": "阻力位", "trend": "趨勢", "squeeze": "擠壓 (VCP)",
+        
+        # Technical Metrics (NEW)
+        "lbl_rsi": "相對強弱指數",
+        "lbl_vol": "成交量比率",
+        "status_high": "偏高", "status_low": "偏低", "status_ok": "適中",
+
         "recent_div": "💰 近期派息記錄 (最近10次)",
         "no_div": "沒有近期派息記錄。",
         "fiscal_year": "財政年度結算日",
@@ -250,17 +264,27 @@ def get_stock_data(ticker):
         stock = yf.Ticker(ticker)
         info = stock.info
         if not info: return None
-        price = info.get('currentPrice', 0)
-        hist = stock.history(period="1y")
-        if price == 0 and not hist.empty: price = hist['Close'].iloc[-1]
         
-        eps = info.get('trailingEps')
-        if eps is None: eps = info.get('forwardEps')
-
-        pe = info.get('trailingPE')
+        price = info.get('currentPrice', 0)
+        
+        # --- 5-YEAR HISTORY ---
+        hist = stock.history(period="5y")
+        
+        if price == 0 and not hist.empty: 
+            price = hist['Close'].iloc[-1]
+        
+        # --- PREFER FORWARD EPS & PE ---
+        eps = info.get('forwardEps')
+        pe = info.get('forwardPE')
+        
+        # Fallback
+        if eps is None: eps = info.get('trailingEps')
+        if pe is None: pe = info.get('trailingPE')
+        
         if pe is None:
             pe = price / eps if (eps and eps > 0) else 0
 
+        # --- HISTORICAL PE CALCULATION (5 Years) ---
         min_pe = 0
         max_pe = 0
         
@@ -463,7 +487,6 @@ if run_analysis:
                     total_qual += s
                     qual_results.append((t_display, s, r))
                     
-                    # --- VISUAL PROGRESS BARS FOR QUALITATIVE ---
                     with st.container(border=True):
                         c1, c2 = st.columns([4, 1])
                         with c1: st.markdown(f"**{t_display}**")
@@ -514,8 +537,16 @@ if run_analysis:
                 with st.container(border=True):
                     st.caption(f"{txt('price')} ({data['currency']})")
                     st.metric("Price", f"{data['price']:.2f}", label_visibility="collapsed")
+                    
+                    # Trailing PE (Reference)
+                    st.caption(txt('pe_ttm'))
+                    trailing_pe = data['raw_info'].get('trailingPE')
+                    st.metric("Trailing PE", fmt_num(trailing_pe), label_visibility="collapsed")
+
+                    # Forward PE (Calculation)
                     st.caption(txt('pe_ratio'))
-                    st.metric("PE", f"{pe:.2f}" if pe and pe > 0 else "N/A", label_visibility="collapsed")
+                    st.metric("Forward PE", f"{pe:.2f}" if pe and pe > 0 else "N/A", label_visibility="collapsed")
+                    
                     st.divider()
                     
                     c1, c2 = st.columns(2)
@@ -598,8 +629,12 @@ if run_analysis:
                 st.subheader(f"{txt('tech_verdict')}: {txt(action_key)}"); st.info(f"📝 {txt('reason')}: {txt(reason_key)}")
                 tc1, tc2, tc3, tc4 = st.columns(4)
                 tc1.metric(txt('trend'), txt(tech['trend']))
-                tc2.metric("RSI (14)", f"{tech['rsi']:.1f}", delta="High" if tech['rsi']>70 else "Low" if tech['rsi']<30 else "OK", delta_color="inverse")
-                tc3.metric("Vol Ratio", f"{tech['vol_ratio']:.2f}x")
+                # Translate the RSI metric label
+                tc2.metric(txt('lbl_rsi'), f"{tech['rsi']:.1f}", 
+                           delta=txt('status_high') if tech['rsi']>70 else txt('status_low') if tech['rsi']<30 else txt('status_ok'), 
+                           delta_color="inverse")
+                # Translate Vol Ratio label
+                tc3.metric(txt('lbl_vol'), f"{tech['vol_ratio']:.2f}x")
                 tc4.metric(txt('squeeze'), "YES" if tech['is_squeezing'] else "No")
                 c_sup, c_res = st.columns(2)
                 c_sup.success(f"🛡️ {txt('support')}: {tech['support']:.2f}"); c_res.error(f"🚧 {txt('resistance')}: {tech['resistance']:.2f}")
