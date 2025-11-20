@@ -64,6 +64,7 @@ T = {
         "pe_pos": "PE Position (5Y)",
         "pe_pos_low": "Low (Cheap)",
         "pe_pos_high": "High (Expensive)",
+        "val_ai_analysis": "Historical Valuation Context", # NEW LABEL
         "grade_strong_buy": "Very Excellent / Strong Buy",
         "grade_buy": "Excellent / Buy",
         "grade_hold": "Good / Hold",
@@ -171,6 +172,7 @@ T = {
         "pe_pos": "目前 PE 位置區間",
         "pe_pos_low": "低位 (便宜)",
         "pe_pos_high": "高位 (昂貴)",
+        "val_ai_analysis": "歷史估值分析", # NEW LABEL
         "grade_strong_buy": "非常優秀 (Strong Buy)",
         "grade_buy": "優秀 (Buy)",
         "grade_hold": "良好 (Hold)",
@@ -387,6 +389,8 @@ def analyze_qualitative(ticker, summary, topic):
     
     if topic == "EarningsSummary":
         prompt = f"Summarize the recent financial performance and news for {ticker}. Context: {summary}. Keep it concise (3-4 bullet points). {lang_instruction}"
+    elif topic == "ValuationSummary":
+        prompt = f"Analyze the Valuation for {ticker}. Context: {summary}. Is the stock cheap or expensive based on its 5-Year PE Range? Write 1 concise sentence summarizing its valuation status. {lang_instruction}"
     else:
         prompt = f"Analyze {ticker} regarding '{topic}'. Context: {summary}. Give a specific score from 0.0 to 4.0 (use 1 decimal place). Provide a 1 sentence reason. {lang_instruction} Strict Format: SCORE|REASON"
     
@@ -527,7 +531,18 @@ if run_analysis:
                     c2.caption(txt('hist_high_pe')); c2.text_input("High", value=f"{max_pe:.1f}", disabled=True, label_visibility="collapsed")
                     st.caption(txt('pe_pos')); safe_pct = max(0.0, min(1.0, position_pct)); st.progress(safe_pct)
                     cc1, cc2 = st.columns([1,1]); cc1.markdown(f"<small>{txt('pe_pos_low')}</small>", unsafe_allow_html=True); cc2.markdown(f"<div style='text-align:right'><small>{txt('pe_pos_high')}</small></div>", unsafe_allow_html=True)
-                    st.divider(); st.subheader(txt('multiplier_label')); st.markdown(f"""<div class="multiplier-box" style="border: 2px solid {color_code}; color: {color_code};">x{mult:.0f}</div>""", unsafe_allow_html=True)
+                    
+                    st.divider()
+                    
+                    # --- AI VALUATION SUMMARY ---
+                    val_context = f"Forward PE: {pe:.2f}. Historical Low PE: {min_pe:.2f}. Historical High PE: {max_pe:.2f}. Position: {position_pct*100:.1f}% of range."
+                    with st.spinner("Analyzing Valuation..."):
+                        val_ai_text, _ = analyze_qualitative(data['name'], val_context, "ValuationSummary")
+                        st.caption(f"🤖 **{txt('val_ai_analysis')}**")
+                        st.info(val_ai_text)
+                    
+                    st.subheader(txt('multiplier_label'))
+                    st.markdown(f"""<div class="multiplier-box" style="border: 2px solid {color_code}; color: {color_code};">x{mult:.0f}</div>""", unsafe_allow_html=True)
 
                     # --- MULTIPLIER EXPLANATION DROPDOWN ---
                     with st.expander(txt('mult_how')):
