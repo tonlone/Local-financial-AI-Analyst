@@ -52,18 +52,6 @@ T = {
         "pe_ratio": "Forward PE (Used for Calc)",
         "multiplier_label": "Valuation Multiplier",
         
-        # Multiplier Explanation (RESTORED)
-        "mult_how": "❓ How is this calculated?",
-        "mult_exp_title": "Logic: Buy Low, Sell High",
-        "mult_exp_desc": "We compare the current PE to its 5-year range. Lower PE (Cheap) gets a higher multiplier to boost the score.",
-        "mult_formula": "Position Formula:",
-        "mult_table_pos": "PE Position",
-        "mult_table_mult": "Multiplier",
-        "mult_table_mean": "Meaning",
-        "status_under": "Undervalued",
-        "status_fair": "Fair Value",
-        "status_over": "Overvalued",
-
         # Score Calculation
         "calc_qual": "Qualitative Score",
         "calc_mult": "Multiplier",
@@ -126,7 +114,19 @@ T = {
         "qq_eps": "Net Income / Share",
         "qq_op_inc": "Operating Income",
         "qq_op_exp": "Operating Expenses",
-        "qq_gross_marg": "Gross Margin"
+        "qq_gross_marg": "Gross Margin",
+        
+        # Multiplier Explanation
+        "mult_how": "❓ How is this calculated?",
+        "mult_exp_title": "Logic: Buy Low, Sell High",
+        "mult_exp_desc": "We compare the current PE to its 5-year range. Lower PE (Cheap) gets a higher multiplier to boost the score.",
+        "mult_formula": "Position Formula:",
+        "mult_table_pos": "PE Position",
+        "mult_table_mult": "Multiplier",
+        "mult_table_mean": "Meaning",
+        "status_under": "Undervalued",
+        "status_fair": "Fair Value",
+        "status_over": "Overvalued",
     },
     "CN": {
         "app_title": "本地價值投資助手",
@@ -159,18 +159,6 @@ T = {
         "pe_ratio": "預測市盈率 (Forward PE)",
         "multiplier_label": "本益比乘數 (Multiplier)",
         
-        # Multiplier Explanation
-        "mult_how": "❓ 如何計算此倍數？",
-        "mult_exp_title": "邏輯：低買高賣",
-        "mult_exp_desc": "我們將當前 PE 與過去 5 年的歷史區間進行比較。PE 越低（便宜）則倍數越高，從而提升評分。",
-        "mult_formula": "位置計算公式：",
-        "mult_table_pos": "PE 區間位置",
-        "mult_table_mult": "倍數 (Multiplier)",
-        "mult_table_mean": "含義",
-        "status_under": "被低估 (便宜)",
-        "status_fair": "合理估值",
-        "status_over": "被高估 (昂貴)",
-
         # Score Calculation
         "calc_qual": "投資評估分數",
         "calc_mult": "本益比乘數",
@@ -233,7 +221,19 @@ T = {
         "qq_eps": "每股淨收益 (Net Income/Share)",
         "qq_op_inc": "營業利潤 (Op Income)",
         "qq_op_exp": "營業費用 (Op Expenses)",
-        "qq_gross_marg": "毛利率 (Gross Margin)"
+        "qq_gross_marg": "毛利率 (Gross Margin)",
+        
+        # Multiplier Explanation
+        "mult_how": "❓ 如何計算此倍數？",
+        "mult_exp_title": "邏輯：低買高賣",
+        "mult_exp_desc": "我們將當前 PE 與過去 5 年的歷史區間進行比較。PE 越低（便宜）則倍數越高，從而提升評分。",
+        "mult_formula": "位置計算公式：",
+        "mult_table_pos": "PE 區間位置",
+        "mult_table_mult": "倍數 (Multiplier)",
+        "mult_table_mean": "含義",
+        "status_under": "被低估 (便宜)",
+        "status_fair": "合理估值",
+        "status_over": "被高估 (昂貴)",
     }
 }
 
@@ -529,7 +529,7 @@ if run_analysis:
                     cc1, cc2 = st.columns([1,1]); cc1.markdown(f"<small>{txt('pe_pos_low')}</small>", unsafe_allow_html=True); cc2.markdown(f"<div style='text-align:right'><small>{txt('pe_pos_high')}</small></div>", unsafe_allow_html=True)
                     st.divider(); st.subheader(txt('multiplier_label')); st.markdown(f"""<div class="multiplier-box" style="border: 2px solid {color_code}; color: {color_code};">x{mult:.0f}</div>""", unsafe_allow_html=True)
 
-                    # --- RESTORED: MULTIPLIER EXPLANATION DROPDOWN ---
+                    # --- MULTIPLIER EXPLANATION DROPDOWN ---
                     with st.expander(txt('mult_how')):
                         st.markdown(f"""
                         **{txt('mult_exp_title')}**  
@@ -616,13 +616,29 @@ if run_analysis:
                     latest_earnings = past_earnings.iloc[0]; earn_date = past_earnings.index[0].strftime('%Y-%m-%d')
             
             # Earnings Card
+            est_eps = 0; act_eps = 0
             if latest_earnings is not None:
                 with st.container(border=True):
                     ec1, ec2, ec3, ec4 = st.columns(4)
                     ec1.metric(txt('earn_date'), earn_date)
-                    est_eps = latest_earnings.get('EPS Estimate'); ec2.metric(txt('earn_est_eps'), f"{est_eps:.2f}" if pd.notna(est_eps) else "-")
-                    act_eps = latest_earnings.get('Reported EPS'); ec3.metric(txt('earn_act_eps'), f"{act_eps:.2f}" if pd.notna(act_eps) else "-")
-                    surprise = latest_earnings.get('Surprise(%)'); ec4.metric(txt('earn_surprise'), f"{surprise*100:.2f}%" if pd.notna(surprise) else "-", delta="Positive" if pd.notna(surprise) and surprise > 0 else "Negative" if pd.notna(surprise) and surprise < 0 else None)
+                    est_eps = latest_earnings.get('EPS Estimate')
+                    ec2.metric(txt('earn_est_eps'), f"{est_eps:.2f}" if pd.notna(est_eps) else "-")
+                    act_eps = latest_earnings.get('Reported EPS')
+                    ec3.metric(txt('earn_act_eps'), f"{act_eps:.2f}" if pd.notna(act_eps) else "-")
+                    
+                    # FIX: Manual Surprise Calculation
+                    surprise_str = "-"
+                    surprise_val = 0
+                    if pd.notna(est_eps) and pd.notna(act_eps) and est_eps != 0:
+                        surprise_val = (act_eps - est_eps) / abs(est_eps)
+                        surprise_str = f"{surprise_val*100:.2f}%"
+                    else:
+                         raw_surp = latest_earnings.get('Surprise(%)')
+                         if pd.notna(raw_surp):
+                             surprise_str = f"{raw_surp:.2f}%" if abs(raw_surp) > 5 else f"{raw_surp*100:.2f}%"
+
+                    ec4.metric(txt('earn_surprise'), surprise_str, delta="Positive" if surprise_val > 0 else "Negative" if surprise_val < 0 else None)
+
             else: st.info("No specific earnings calendar data found.")
 
             st.markdown("---")
@@ -675,7 +691,7 @@ if run_analysis:
                 for n in data['news'][:5]:
                     news_text += f"- {n.get('title', 'No Title')}\n"
             
-            earn_context = f"Last Earnings Date: {earn_date}. Reported EPS: {latest_earnings.get('Reported EPS') if latest_earnings is not None else 'N/A'}. Revenue: {q_rev_disp}."
+            earn_context = f"Last Earnings Date: {earn_date}. Reported EPS: {act_eps if pd.notna(act_eps) else 'N/A'}. Revenue: {q_rev_disp}."
             full_context = f"{earn_context}\nRecent Headlines:\n{news_text}"
             
             with st.spinner(txt('loading_ai')):
