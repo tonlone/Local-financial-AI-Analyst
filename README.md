@@ -17,6 +17,21 @@ pip install streamlit yfinance pandas numpy openai
 Make sure LM Studio server is running (Green "Start Server" button clicked).
 Open your command prompt in the folder where you saved local_app.py.
 Run the command:
-code
-Bash
+
+Bash>>
 streamlit run local_app.py
+
+
+Access outside home
+Method 1: Download the Windows Binary (Recommended)
+Step 1: Download cloudflared
+
+Go to: https://github.com/cloudflare/cloudflared/releases/latest
+Download cloudflared-windows-amd64.exe
+
+Step 2: Rename and move it
+
+Rename the file to cloudflared.exe
+Move it to a folder like C:\git-repo\cloudflared\
+
+C:\git-repo\cloudflared\cloudflared.exe tunnel --url http://localhost:8501
